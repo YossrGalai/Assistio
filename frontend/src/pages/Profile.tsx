@@ -5,10 +5,11 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Star, MapPin, Calendar, Edit, Briefcase, User, Lock, Bell, Shield, Save } from "lucide-react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Star, MapPin, Calendar, Settings, Edit, Briefcase, User, Mail, Phone, Lock, Bell, Shield, Save } from "lucide-react";
 import RequestCard from "../components/RequestCard";
 import { mockRequests } from "../data/mockData";
-import type { ServiceRequest } from "../data/mockData";
+import { mockReviews } from "../data/notificationData";
 
 const Profile = () => {
   const [editingProfile, setEditingProfile] = useState(false);
@@ -65,12 +66,16 @@ const Profile = () => {
           <TabsList>
             <TabsTrigger value="requests">Mes demandes</TabsTrigger>
             <TabsTrigger value="history">Historique</TabsTrigger>
+            <TabsTrigger value="reviews" className="gap-1.5">
+              <Star className="h-4 w-4" />
+              Avis
+            </TabsTrigger>
             <TabsTrigger value="settings">Paramètres</TabsTrigger>
           </TabsList>
 
           <TabsContent value="requests">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {mockRequests.slice(0, 3).map((req: ServiceRequest, i: number) => (
+              {mockRequests.slice(0, 3).map((req, i) => (
                 <RequestCard key={req.id} request={req} index={i} />
               ))}
             </div>
@@ -78,11 +83,46 @@ const Profile = () => {
 
           <TabsContent value="history">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {mockRequests.filter((r: ServiceRequest) => r.status === "terminée").map((req: ServiceRequest, i: number) => (
+              {mockRequests.filter((r) => r.status === "terminée").map((req, i) => (
                 <RequestCard key={req.id} request={req} index={i} />
               ))}
             </div>
           </TabsContent>
+          {/* Reviews */}
+                    <TabsContent value="reviews" className="space-y-4">
+                      <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                        <h3 className="mb-4 flex items-center gap-2 font-bold text-foreground">
+                          <Star className="h-5 w-5 text-accent" />
+                          Avis reçus ({mockReviews.length})
+                        </h3>
+                        <div className="space-y-4">
+                          {mockReviews.map((review) => (
+                            <div key={review.id} className="rounded-xl border border-border p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                                  {review.fromUser.avatar}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">{review.fromUser.name}</p>
+                                  <div className="flex items-center gap-1">
+                                    {Array.from({ length: 5 }, (_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`h-3.5 w-3.5 ${i < review.rating ? "fill-accent text-accent" : "text-muted-foreground/30"}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  {new Date(review.createdAt).toLocaleDateString("fr-TN", { day: "numeric", month: "short", year: "numeric" })}
+                                </span>
+                              </div>
+                              <p className="mt-3 text-sm text-muted-foreground">{review.comment}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
 
           <TabsContent value="settings">
             <div className="space-y-6">
@@ -163,7 +203,7 @@ const Profile = () => {
                     { label: "Nouvelles demandes", desc: "Recevoir une notification pour les nouvelles demandes dans vos catégories", enabled: true },
                     { label: "Messages", desc: "Notifications pour les nouveaux messages", enabled: true },
                     { label: "Offres reçues", desc: "Recevoir une alerte quand quelqu'un répond à votre demande", enabled: false },
-                    { label: "Newsletter", desc: "Actualités et promotions de Assistio", enabled: false },
+                    { label: "Newsletter", desc: "Actualités et promotions d'Assistio", enabled: false },
                   ].map((notif) => (
                     <div key={notif.label} className="flex items-center justify-between rounded-xl border border-border p-4">
                       <div>
