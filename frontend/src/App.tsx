@@ -1,3 +1,8 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import RequestsMap from "./pages/Requests/RequestsMap";
+import CreateRequest from "./pages/Requests/CreateRequest";
+import Home from "./pages/Home";
+
 import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -42,6 +47,9 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/map" element={<RequestsMap />} />
+        <Route path="/create" element={<CreateRequest />} />
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -51,4 +59,5 @@ function App() {
   );
 }
 
+export default App;
 export default App;
