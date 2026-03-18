@@ -1,9 +1,21 @@
-import { useState } from "react";
-import { Bell, UserPlus, CheckCircle, CheckCheck, MessageSquare, Star, Info, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Bell, UserPlus, CheckCircle, CheckCheck,
+  MessageSquare, Star, Info, Trash2,
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { mockNotifications, notificationTypeLabels, type Notification, type NotificationType } from "../data/notificationData";
+import {
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification as deleteNotificationAPI,
+  type AppNotification,
+} from "../api/notifications";
+import { isAuthenticated } from "../api/auth";
+
+type NotificationType = AppNotification["type"];
 
 const iconMap: Record<NotificationType, React.ElementType> = {
   aide_proposee: UserPlus,
@@ -23,25 +35,82 @@ const iconColorMap: Record<NotificationType, string> = {
   systeme: "text-muted-foreground",
 };
 
+const notificationTypeLabels: Record<NotificationType, string> = {
+  aide_proposee: "Aide proposée",
+  aide_acceptee: "Aide acceptée",
+  demande_terminee: "Terminée",
+  nouveau_commentaire: "Commentaire",
+  review_recue: "Avis reçu",
+  systeme: "Système",
+};
+
 const NotificationCenter = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchNotifications = async () => {
+      try {
+        setError(null);
+        const data = await getNotifications();
+        setNotifications(data);
+      } catch (err) {
+        console.error("Erreur lors du chargement des notifications :", err);
+        setError("Impossible de charger les notifications");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadNotifs = notifications.filter((n) => !n.read);
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (error) {
+      console.error("Erreur markAllAsRead :", error);
+    }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const handleMarkAsRead = async (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    try {
+      await markAsRead(id);
+    } catch (error) {
+      console.error("Erreur markAsRead :", error);
+    }
   };
 
-  const deleteNotification = (id: string) => {
+  const handleDelete = async (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await deleteNotificationAPI(id);
+    } catch (error) {
+      console.error("Erreur suppression :", error);
+    }
   };
 
-  const clearAll = () => {
+  const handleClearAll = async () => {
+    const toDelete = [...notifications];
     setNotifications([]);
+    try {
+      await Promise.all(toDelete.map((n) => deleteNotificationAPI(n.id)));
+    } catch (error) {
+      console.error("Erreur suppression globale :", error);
+    }
   };
 
   const formatDate = (dateStr: string) =>
@@ -53,8 +122,8 @@ const NotificationCenter = () => {
       minute: "2-digit",
     });
 
-  const renderNotification = (notif: Notification) => {
-    const Icon = iconMap[notif.type];
+  const renderNotification = (notif: AppNotification) => {
+    const Icon = iconMap[notif.type] ?? Info;
     return (
       <div
         key={notif.id}
@@ -62,7 +131,11 @@ const NotificationCenter = () => {
           !notif.read ? "bg-primary/5 border-primary/20" : "bg-card"
         }`}
       >
-        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted ${iconColorMap[notif.type]}`}>
+        <div
+          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted ${
+            iconColorMap[notif.type] ?? "text-muted-foreground"
+          }`}
+        >
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -82,15 +155,29 @@ const NotificationCenter = () => {
               <span className="text-xs text-muted-foreground">{notif.fromUser.name}</span>
             </div>
           )}
-          <span className="mt-2 block text-xs text-muted-foreground/70">{formatDate(notif.createdAt)}</span>
+          <span className="mt-2 block text-xs text-muted-foreground/70">
+            {formatDate(notif.createdAt)}
+          </span>
         </div>
         <div className="flex shrink-0 gap-1">
           {!notif.read && (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => markAsRead(notif.id)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleMarkAsRead(notif.id)}
+              title="Marquer comme lu"
+            >
               <CheckCircle className="h-4 w-4 text-primary" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteNotification(notif.id)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleDelete(notif.id)}
+            title="Supprimer"
+          >
             <Trash2 className="h-4 w-4 text-muted-foreground" />
           </Button>
         </div>
@@ -98,8 +185,16 @@ const NotificationCenter = () => {
     );
   };
 
-  const unreadNotifs = notifications.filter((n) => !n.read);
-  //const readNotifs = notifications.filter((n) => n.read);
+  if (!isAuthenticated()) {
+    return (
+      <div className="rounded-xl border border-border bg-card py-12 text-center">
+        <Bell className="mx-auto h-10 w-10 text-muted-foreground/40" />
+        <p className="mt-3 text-sm text-muted-foreground">
+          Connectez-vous pour voir vos notifications
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -112,37 +207,53 @@ const NotificationCenter = () => {
           <div>
             <h2 className="text-xl font-bold text-foreground">Centre de notifications</h2>
             <p className="text-sm text-muted-foreground">
-              {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? "s" : ""}` : "Tout est à jour"}
+              {loading
+                ? "Chargement..."
+                : unreadCount > 0
+                ? `${unreadCount} non lue${unreadCount > 1 ? "s" : ""}`
+                : "Tout est à jour"}
             </p>
           </div>
         </div>
         <div className="flex gap-2">
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllRead}>
+            <Button variant="outline" size="sm" onClick={handleMarkAllRead}>
               Tout marquer lu
             </Button>
           )}
           {notifications.length > 0 && (
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={clearAll}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={handleClearAll}
+            >
               Tout supprimer
             </Button>
           )}
         </div>
       </div>
 
+      {/* Erreur */}
+      {error && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="all">
         <TabsList>
-          <TabsTrigger value="all">
-            Toutes ({notifications.length})
-          </TabsTrigger>
-          <TabsTrigger value="unread">
-            Non lues ({unreadCount})
-          </TabsTrigger>
+          <TabsTrigger value="all">Toutes ({notifications.length})</TabsTrigger>
+          <TabsTrigger value="unread">Non lues ({unreadCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-4 space-y-3">
-          {notifications.length === 0 ? (
+          {loading ? (
+            <div className="rounded-xl border border-border bg-card py-12 text-center">
+              <p className="text-sm text-muted-foreground">Chargement...</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="rounded-xl border border-border bg-card py-12 text-center">
               <Bell className="mx-auto h-10 w-10 text-muted-foreground/40" />
               <p className="mt-3 text-sm text-muted-foreground">Aucune notification</p>

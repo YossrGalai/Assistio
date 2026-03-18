@@ -1,10 +1,34 @@
 import { Link } from "react-router-dom";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { MapPin, Clock, Users, MessageSquare, AlertTriangle, Star, Search, Wrench, ArrowRight } from "lucide-react";
-import type { ServiceRequest } from "../data/mockData";
-import { statusLabels, categories } from "../data/mockData"; 
+import {
+  MapPin, Clock, Users, MessageSquare,
+  AlertTriangle, Star, Search, Wrench, ArrowRight,
+} from "lucide-react";
+import type { ServiceRequest } from "../api/requests";
 import { motion } from "framer-motion";
+
+// Labels statuts
+const statusLabels: Record<string, string> = {
+  ouverte: "Ouverte",
+  en_cours: "En cours",
+  terminée: "Terminée",
+  annulée: "Annulée",
+};
+
+// Catégories
+const categories = [
+  { id: "plomberie", label: "Plomberie" },
+  { id: "electricite", label: "Électricité" },
+  { id: "jardinage", label: "Jardinage" },
+  { id: "peinture", label: "Peinture" },
+  { id: "informatique", label: "Informatique" },
+  { id: "voirie", label: "Voirie" },
+  { id: "menuiserie", label: "Menuiserie" },
+  { id: "maconnerie", label: "Maçonnerie" },
+  { id: "nettoyage", label: "Nettoyage" },
+  { id: "demenagement", label: "Déménagement" },
+];
 
 interface RequestCardProps {
   request: ServiceRequest;
@@ -12,14 +36,16 @@ interface RequestCardProps {
 }
 
 const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
-  const cat = categories.find((c) => c.id === request.category);
+  const cat = categories.find(
+    (c) => c.id === request.category?.toLowerCase()
+  );
   const isRecherche = request.type === "recherche";
 
-  const statusVariant = {
-    ouverte: "success" as const,
-    en_cours: "warning" as const,
-    terminée: "secondary" as const,
-    annulée: "destructive" as const,
+  const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
+    ouverte: "success",
+    en_cours: "warning",
+    terminée: "secondary",
+    annulée: "destructive",
   };
 
   return (
@@ -30,7 +56,8 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
     >
       <Link to={`/request/${request.id}`} className="group block h-full">
         <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all duration-300 hover:shadow-card-hover hover:-translate-y-0.5">
-          {/* Image for service type only */}
+
+          {/* Image — type service uniquement */}
           {!isRecherche && request.image && (
             <div className="relative h-44 overflow-hidden">
               <img
@@ -47,8 +74,8 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
                 </Badge>
               </div>
               <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                <Badge variant={statusVariant[request.status]}>
-                  {statusLabels[request.status]}
+                <Badge variant={statusVariant[request.status] ?? "secondary"}>
+                  {statusLabels[request.status] ?? request.status}
                 </Badge>
                 {request.urgent && (
                   <Badge variant="destructive" className="gap-1">
@@ -63,7 +90,7 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
             </div>
           )}
 
-          {/* Header for recherche type (no image) */}
+          {/* Header — type recherche */}
           {isRecherche && (
             <div className="bg-gradient-to-br from-primary/5 to-accent/5 p-4 border-b border-border">
               <div className="flex items-start justify-between gap-2">
@@ -77,8 +104,8 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
                       Recherche
                     </Badge>
                     <div className="mt-1 flex items-center gap-2">
-                      <Badge variant={statusVariant[request.status]} className="text-[10px]">
-                        {statusLabels[request.status]}
+                      <Badge variant={statusVariant[request.status] ?? "secondary"} className="text-[10px]">
+                        {statusLabels[request.status] ?? request.status}
                       </Badge>
                       {request.urgent && (
                         <Badge variant="destructive" className="gap-1 text-[10px]">
@@ -96,6 +123,7 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
             </div>
           )}
 
+          {/* Corps */}
           <div className="flex flex-1 flex-col p-4">
             <h3 className="mb-2 text-lg font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1">
               {request.title}
@@ -105,10 +133,12 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
             </p>
 
             <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {request.location}
-              </span>
+              {request.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {request.location}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
                 {new Date(request.createdAt).toLocaleDateString("fr-TN")}
@@ -129,7 +159,9 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
                   <p className="text-xs font-medium text-foreground">{request.author.name}</p>
                   <div className="flex items-center gap-1">
                     <Star className="h-3 w-3 fill-accent text-accent" />
-                    <span className="text-[10px] text-muted-foreground">{request.author.rating}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {request.author.rating > 0 ? request.author.rating : "—"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -154,6 +186,7 @@ const RequestCard = ({ request, index = 0 }: RequestCardProps) => {
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </div>
+
         </div>
       </Link>
     </motion.div>
