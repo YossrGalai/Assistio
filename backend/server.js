@@ -1,10 +1,40 @@
-const express = require("express");
-const dotenv = require("dotenv");
-const cors = require("cors");
-const connectDB = require("./config/db");
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
 dotenv.config();
-connectDB();
+
+const app = express();
+
+// Middleware
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json());
+
+// Connexion MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log(' MongoDB connecté'))
+  .catch((err) => console.error(' Erreur MongoDB :', err.message));
+
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/requests', require('./routes/requests'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/reviews', require('./routes/reviews'));
+
+const PORT = process.env.PORT || 5001;
+
+app.listen(PORT, () => {
+  console.log(` Serveur démarré sur http://localhost:${PORT}`);
+});
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 
@@ -16,3 +46,10 @@ app.use("/api/requests", require("./routes/requestRoutes"));
 app.listen(process.env.PORT, () => {
   console.log(`Serveur lancé sur le port ${process.env.PORT}`);
 });
+mongoose.connect(process.env.MONGO_URI, { dbName: "Assistio" })
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.log(err));
+
+app.use("/api/users", require("./routes/userRoutes"));
+
+app.listen(5000, () => console.log("Server running"));
