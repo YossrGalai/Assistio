@@ -4,8 +4,8 @@ export type Request = {
   description: string;
   category: string;
   urgency: string;
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
   city?: string;
   gouvernorat?: string;
   status: "pending" | "in_progress" | "done";
