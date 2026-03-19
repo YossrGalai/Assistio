@@ -10,17 +10,17 @@ import {
   User, Lock, Bell, Shield, Save,
 } from "lucide-react";
 import RequestCard from "../components/RequestCard";
-import { getRequestsByUser, type ServiceRequest } from "../api/requests";
-import { getUserReviews, type Review } from "../api/reviews";
-import { getUserById, type User as UserType } from "../api/auth";
+import {  type ServiceRequest } from "../api/requests";
+import {  type Review } from "../api/reviews";
+import {  type User as UserType } from "../api/auth";
 
-const TEMP_USER_ID = "69b9adf10f9a5013de84ad64"; // Omar Gharbi (admin)
+
 
 const Profile = () => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [requests] = useState<ServiceRequest[]>([]);
+  const [reviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -29,33 +29,36 @@ const Profile = () => {
   const [formEmail, setFormEmail] = useState("");
   const [formCity, setFormCity] = useState("");
   const [formBio, setFormBio] = useState("");
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem("token"); 
+      if (!token) return;
+      const res = await fetch("http://localhost:5000/api/users/profile", {
+        headers: {
+          Authorization: "Bearer " + token, 
+        }, });
+      const user = await res.json();
+       console.log("Utilisateur :", user);
+      setCurrentUser(user); // set logged user
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [user, requestsData, reviewsData] = await Promise.all([
-          getUserById(TEMP_USER_ID),
-          getRequestsByUser(TEMP_USER_ID),
-          getUserReviews(TEMP_USER_ID),
-        ]);
+      // fill the form
+      setFormName(user.name || "");
+      setFormPhone(user.phone || "");
+      setFormEmail(user.email || "");
+      setFormCity(user.city || "");
+      setFormBio(user.bio || "");
 
-        setCurrentUser(user);
-        setFormName(user.name || "");
-        setFormPhone(user.phone || "");
-        setFormEmail(user.email || "");
-        setFormCity(user.city || "");
-        setFormBio(user.bio || "");
-        setRequests(requestsData);
-        setReviews(reviewsData);
-      } catch (error) {
-        console.error("Erreur lors du chargement :", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Optional: later, you can fetch requests/reviews using user._id
+    } catch (error) {
+      console.error("Erreur :", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, []);
+  fetchData();
+}, []);
 
   const handleSaveProfile = async () => {
     try {
@@ -374,17 +377,7 @@ const Profile = () => {
                     </div>
                     <Button variant="outline" size="sm">Changer</Button>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl border border-border p-4">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Authentification à deux facteurs
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Sécurisez votre compte avec la 2FA
-                      </p>
-                    </div>
-                    <Badge variant="destructive">Désactivé</Badge>
-                  </div>
+                 
                 </div>
               </div>
 
@@ -399,7 +392,7 @@ const Profile = () => {
                     { label: "Nouvelles demandes", desc: "Recevoir une notification pour les nouvelles demandes dans vos catégories", enabled: true },
                     { label: "Messages", desc: "Notifications pour les nouveaux messages", enabled: true },
                     { label: "Offres reçues", desc: "Recevoir une alerte quand quelqu'un répond à votre demande", enabled: false },
-                    { label: "Newsletter", desc: "Actualités et promotions d'Assistio", enabled: false },
+                    
                   ].map((notif) => (
                     <div
                       key={notif.label}

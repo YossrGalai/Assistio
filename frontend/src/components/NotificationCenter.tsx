@@ -13,7 +13,6 @@ import {
   deleteNotification as deleteNotificationAPI,
   type AppNotification,
 } from "../api/notifications";
-import { isAuthenticated } from "../api/auth";
 
 type NotificationType = AppNotification["type"];
 
@@ -50,11 +49,6 @@ const NotificationCenter = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      setLoading(false);
-      return;
-    }
-
     const fetchNotifications = async () => {
       try {
         setError(null);
@@ -184,17 +178,6 @@ const NotificationCenter = () => {
       </div>
     );
   };
-
-  if (!isAuthenticated()) {
-    return (
-      <div className="rounded-xl border border-border bg-card py-12 text-center">
-        <Bell className="mx-auto h-10 w-10 text-muted-foreground/40" />
-        <p className="mt-3 text-sm text-muted-foreground">
-          Connectez-vous pour voir vos notifications
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

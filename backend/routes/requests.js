@@ -1,6 +1,8 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const ServiceRequest = require('../models/ServiceRequest');
-const auth = require('../middleware/auth');
+const User = require('../models/User');
+const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -9,7 +11,7 @@ const STATUS_MAP = {
   cancelled: 'annulée', ouverte: 'ouverte', en_cours: 'en_cours',
   terminée: 'terminée', annulée: 'annulée',
 };
-
+ 
 // 1. GET /api/requests
 router.get('/', async (req, res) => {
   try {
@@ -24,45 +26,57 @@ router.get('/', async (req, res) => {
     if (type) filter.type = type;
     if (urgent === 'true') filter.$or = [{ urgent: true }, { urgency: 'high' }];
 
-    const requests = await ServiceRequest.find(filter)
-      .populate('author', 'name city profileImageUrl ratings')
+    
+    
       .populate('createdBy', 'name city profileImageUrl ratings')
       .sort({ createdAt: -1 });
-    res.json(requests.map(normalizeRequest));
+    res.json(requests.map((r, index) => normalizeRequest(r, index)));
+    const requests = await ServiceRequest.find(filter).sort({ createdAt: -1 });
+    const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 2. GET /api/requests/user/:userId  ← AVANT /:id
+// 2. GET /api/requests/user/:userId ← AVANT /:id
 router.get('/user/:userId', async (req, res) => {
   try {
-    const requests = await ServiceRequest.find({
-      $or: [
-        { author: req.params.userId },
-        { createdBy: req.params.userId },
-      ]
-    })
-      .populate('author', 'name city profileImageUrl ratings')
-      .populate('createdBy', 'name city profileImageUrl ratings')
+    const { userId } = req.params;
+
+    // Chercher par string ET par ObjectId pour couvrir les deux cas
+    const orConditions = [
+      { createdBy: userId },
+      { author: userId },
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      const objectId = new mongoose.Types.ObjectId(userId);
+      orConditions.push({ createdBy: objectId });
+      orConditions.push({ author: objectId });
+    }
+
+    const requests = await ServiceRequest.find({ $or: orConditions })
       .sort({ createdAt: -1 });
-    res.json(requests.map(normalizeRequest));
+
+    console.log(`✅ Trouvé ${requests.length} demandes pour userId: ${userId}`);
+
+    const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 3. GET /api/requests/:id  ← APRÈS /user/:userId
+// 3. GET /api/requests/:id ← APRÈS /user/:userId
 router.get('/:id', async (req, res) => {
   try {
-    const request = await ServiceRequest.findById(req.params.id)
-      .populate('author', 'name city profileImageUrl ratings')
-      .populate('createdBy', 'name city profileImageUrl ratings')
-      .populate('assignedTo', 'name city profileImageUrl');
+    const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
-    res.json(normalizeRequest(request));
+    const normalized = await normalizeRequestWithUser(request);
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -91,8 +105,8 @@ router.post('/', auth, async (req, res) => {
       status: 'pending',
     });
     await request.save();
-    await request.populate('author', 'name city profileImageUrl ratings');
-    res.status(201).json(normalizeRequest(request));
+    const normalized = await normalizeRequestWithUser(request);
+    res.status(201).json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -105,8 +119,7 @@ router.put('/:id', auth, async (req, res) => {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    // Vérifier author OU createdBy
-    const ownerId = request.author?.toString() || request.createdBy?.toString();
+    const ownerId = (request.author || request.createdBy || '').toString();
     if (ownerId !== req.user.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -116,8 +129,8 @@ router.put('/:id', auth, async (req, res) => {
     if (req.body.urgency) request.urgent = req.body.urgency === 'high';
     if (req.body.city) request.location = req.body.city;
     await request.save();
-    await request.populate('author', 'name city profileImageUrl ratings');
-    res.json(normalizeRequest(request));
+    const normalized = await normalizeRequestWithUser(request);
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -130,8 +143,7 @@ router.delete('/:id', auth, async (req, res) => {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    // Vérifier author OU createdBy
-    const ownerId = request.author?.toString() || request.createdBy?.toString();
+    const ownerId = (request.author || request.createdBy || '').toString();
     if (ownerId !== req.user.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -145,25 +157,93 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-function normalizeRequest(doc) {
+function normalizeRequest(doc, index = 0) {
   const r = doc.toObject ? doc.toObject() : doc;
 
-  // Accepter author OU createdBy selon ce qui est peuplé
+  const cityCoords = {
+    Tunis: { lat: 36.8065, lng: 10.1815 },
+    Sousse: { lat: 35.8256, lng: 10.6370 },
+    Sfax: { lat: 34.7406, lng: 10.7603 },
+    Nabeul: { lat: 36.4510, lng: 10.7350 },
+    Bizerte: { lat: 37.2744, lng: 9.8739 },
+    Monastir: { lat: 35.7643, lng: 10.8113 },
+    Ariana: { lat: 36.8625, lng: 10.1956 },
+    Manouba: { lat: 36.8100, lng: 10.0972 },
+    Gafsa: { lat: 34.4250, lng: 8.7842 },
+    Kairouan: { lat: 35.6712, lng: 10.1005 },
+    Gabès: { lat: 33.8881, lng: 10.0975 },
+    Médenine: { lat: 33.3549, lng: 10.4957 },
+    Kasserine: { lat: 35.1676, lng: 8.8365 },
+    SidiBouzid: { lat: 35.0382, lng: 9.4849 },
+    Jendouba: { lat: 36.5011, lng: 8.7757 },
+    Kef: { lat: 36.1740, lng: 8.7046 },
+    Siliana: { lat: 36.0849, lng: 9.3708 },
+    Zaghouan: { lat: 36.4021, lng: 10.1429 },
+    Béja: { lat: 36.7256, lng: 9.1817 },
+    Mahdia: { lat: 35.5047, lng: 11.0622 },
+    Tataouine: { lat: 32.9211, lng: 10.4508 },
+    Tozeur: { lat: 33.9197, lng: 8.1335 },
+    Kébili: { lat: 33.7042, lng: 8.9690 },
+  };
+
+  const cityKey = Object.keys(cityCoords).find(
+    k => k.toLowerCase() === (r.city || '').trim().toLowerCase()
+      || k.toLowerCase() === (r.gouvernorat || '').trim().toLowerCase()
+  );
+  if (!cityKey) {
+    console.warn(`⚠️ Ville non trouvée dans cityCoords: "${r.city}" / "${r.gouvernorat}"`);
+  }
+  const baseCoords = cityCoords[cityKey] || { lat: 36.8065, lng: 10.1815 };
+
+  // Offset déterministe basé sur l'_id (stable entre rechargements)
+  const angle = index * (2 * Math.PI / 8);
+  const radius = 0.004;
+  const coords = {
+    lat: baseCoords.lat + Math.cos(angle) * radius,
+    lng: baseCoords.lng + Math.sin(angle) * radius,
+  };
+
   const author =
     (r.author && typeof r.author === 'object' && r.author.name)
       ? r.author
       : (r.createdBy && typeof r.createdBy === 'object' && r.createdBy.name)
       ? r.createdBy
       : {};
+// ─── Helper : charge l'auteur via User.findById (fonctionne string ET ObjectId)
+async function normalizeRequestWithUser(doc) {
+  const r = doc.toObject ? doc.toObject() : doc;
 
-  const ratings = author.ratings || [];
+  // Prendre author ou createdBy
+  const authorId = r.author || r.createdBy;
+
+  let authorData = {};
+  if (authorId) {
+    try {
+      const user = await User.findById(authorId.toString())
+        .select('name city profileImageUrl ratings');
+      if (user) authorData = user.toObject();
+    } catch {
+      // ID invalide → on continue avec données vides
+    }
+  }
+
+  const ratings = authorData.ratings || [];
   const avgRating = ratings.length
     ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
     : 0;
 
-  const avatarInitials = author.name
-    ? author.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+  const avatarInitials = authorData.name
+    ? authorData.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
+
+  console.log("FINAL COORDS:", {
+    id: r._id.toString(),
+    city: r.city,
+    cityKey,
+    baseCoords,
+    finalLat: r.latitude || coords.lat,
+    finalLng: r.longitude || coords.lng,
+  });
 
   return {
     id: r._id.toString(),
@@ -183,15 +263,17 @@ function normalizeRequest(doc) {
     commentsCount: r.commentsCount || 0,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    latitude: r.latitude || r.location?.coordinates?.[1] || coords.lat,
+    longitude: r.longitude || r.location?.coordinates?.[0] || coords.lng,
     author: {
-      id: author._id?.toString() || '',
-      name: author.name || 'Utilisateur',
+      id: authorData._id?.toString() || authorId?.toString() || '',
+      name: authorData.name || 'Utilisateur',
       avatar: avatarInitials,
       rating: avgRating,
-      city: author.city || '',
-      profileImageUrl: author.profileImageUrl || '',
+      city: authorData.city || '',
+      profileImageUrl: authorData.profileImageUrl || '',
     },
   };
 }
-
+}
 module.exports = router;

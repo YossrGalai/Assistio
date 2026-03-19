@@ -1,23 +1,44 @@
 const express = require("express");
-const router = express.Router();
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const User = require("../models/User"); 
-const authMiddleware = require("../middlewares/authMiddleware"); 
+const User = require("../models/User");
+const authMiddleware = require("../middlewares/authMiddleware");
+
+const router = express.Router();
 
 // ---------------- REGISTER ----------------
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, city } = req.body;
 
-    // vérifier si email existe
+    // verifier si email existe
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ message: "Email already exists" });
 
-    // créer utilisateur
-    const user = new User({ name, email, password });
+    // creer utilisateur (hash mot de passe)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const user = new User({ name, email, password: hashedPassword, city });
     await user.save();
 
-    res.json({ message: "User registered", user });
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: "7d"
+    });
+
+    res.status(201).json({
+      message: "User registered",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        city: user.city,
+        role: user.role,
+        reputationScore: user.reputationScore,
+        completedHelps: user.completedHelps,
+        profileImageUrl: user.profileImageUrl
+      }
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: "Error" });
@@ -28,13 +49,42 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    const user = await User.findOne({ email, password }); // ⚠️ hash en vrai
+    console.log("Trying to login:", email, password);
+    const user = await User.findOne({ email });
+    console.log("User found:", user);
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    let isMatch = false;
+    if (user.password) {
+      isMatch = await bcrypt.compare(password, user.password);
+    }
+    // Migration for legacy plaintext passwords
+    if (!isMatch && user.password === password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+      await user.save();
+      isMatch = true;
+    }
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-    res.json({ message: "Login successful", token, user });
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: "7d"
+    });
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        city: user.city,
+        role: user.role,
+        reputationScore: user.reputationScore,
+        completedHelps: user.completedHelps,
+        profileImageUrl: user.profileImageUrl
+      }
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: "Error" });
@@ -44,7 +94,7 @@ router.post("/login", async (req, res) => {
 // ---------------- GET PROFILE ----------------
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id || req.user.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
@@ -56,12 +106,15 @@ router.get("/profile", authMiddleware, async (req, res) => {
 // ---------------- UPDATE PROFILE ----------------
 router.put("/profile", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id || req.user.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const { name, password } = req.body;
     if (name) user.name = name;
-    if (password) user.password = password; // ⚠️ hash en vrai
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
     await user.save();
 
     res.json({ message: "Profile updated", user });
@@ -74,7 +127,7 @@ router.put("/profile", authMiddleware, async (req, res) => {
 // ---------------- UPDATE REPUTATION ----------------
 router.post("/reputation", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id || req.user.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const { points, action } = req.body;

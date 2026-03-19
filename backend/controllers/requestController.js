@@ -42,9 +42,34 @@ exports.createRequest = async (req, res) => {
 
 exports.getRequests = async (req, res) => {
   try {
-    const requests = await Request.find().sort({ createdAt: -1 });
-    res.json(requests);
+    console.log("🔥 getRequests called");
+    const requests = await Request.find();
+
+    const formatted = requests.map(r => {
+      console.log("RAW:", r); // 🔍 debug
+
+      return {
+        id: r._id.toString(),
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        urgency: r.urgency,
+
+        // 🔥 FORCER LES COORDONNÉES
+        latitude: r.latitude || r.location?.coordinates?.[1],
+        longitude: r.longitude || r.location?.coordinates?.[0],
+
+        city: r.city,
+        gouvernorat: r.gouvernorat,
+        status: r.status,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      };
+    });
+
+    res.json(formatted);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -61,7 +86,14 @@ exports.getFilteredRequests = async (req, res) => {
 
     const requests = await Request.find(filter).sort({ createdAt: -1 });
 
-    res.json(requests);
+    const formatRequest = (r) => ({
+      ...r._doc,
+      _id: r._id.toString()
+    });
+
+    const formatted = requests.map(formatRequest);
+    res.json(formatted);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -86,7 +118,13 @@ exports.getNearbyRequests = async (req, res) => {
       },
     });
 
-    res.json(requests);
+    const formatRequest = (r) => ({
+      ...r._doc,
+      _id: r._id.toString()
+    });
+    const formatted = requests.map(formatRequest);
+    res.json(formatted);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   // Keep legacy 'user' field for backward compat
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: String }, 
+   user: { type: mongoose.Schema.Types.Mixed },
   type: {
     type: String,
     enum: ['aide_proposee', 'aide_acceptee', 'demande_terminee', 'nouveau_commentaire', 'review_recue', 'systeme'],
