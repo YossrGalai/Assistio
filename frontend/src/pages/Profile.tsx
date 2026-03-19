@@ -377,17 +377,7 @@ useEffect(() => {
                     </div>
                     <Button variant="outline" size="sm">Changer</Button>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl border border-border p-4">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Authentification à deux facteurs
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Sécurisez votre compte avec la 2FA
-                      </p>
-                    </div>
-                    <Badge variant="destructive">Désactivé</Badge>
-                  </div>
+                 
                 </div>
               </div>
 
@@ -402,7 +392,7 @@ useEffect(() => {
                     { label: "Nouvelles demandes", desc: "Recevoir une notification pour les nouvelles demandes dans vos catégories", enabled: true },
                     { label: "Messages", desc: "Notifications pour les nouveaux messages", enabled: true },
                     { label: "Offres reçues", desc: "Recevoir une alerte quand quelqu'un répond à votre demande", enabled: false },
-                    { label: "Newsletter", desc: "Actualités et promotions d'Assistio", enabled: false },
+                    
                   ].map((notif) => (
                     <div
                       key={notif.label}

@@ -11,6 +11,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import "./App.css";
+import Requests from "./pages/Requests";
+import RequestDetail from "./pages/RequestDetail";
+import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -21,14 +24,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/profile" element={<Profile />} />
           <Route path="/" element={<Home />} />
           <Route path="/map" element={<RequestsMap />} />
           <Route path="/create" element={<CreateRequest />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/profile" element={<Profile />} />
-            
+          <Route path="/profile" element={<Profile />} />  
+          <Route path="/request/:id" element={<RequestDetail />} />
+          <Route path="/requests" element={<Requests />} />  
+          <Route path="/notifications" element={<Notifications />} />        
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
@@ -36,3 +40,4 @@ const App = () => (
 );
 
 export default App;
+

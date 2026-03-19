@@ -21,6 +21,7 @@ export interface CreateReviewData {
   toUserId: string;
   rating: number;
   comment: string;
+  fromUserId?: string;
 }
 
 export const getUserReviews = async (userId: string): Promise<Review[]> => {
@@ -34,6 +35,9 @@ export const getRequestReviews = async (requestId: string): Promise<Review[]> =>
 };
 
 export const createReview = async (reviewData: CreateReviewData): Promise<Review> => {
-  const response = await api.post<Review>('/reviews', reviewData);
+  const response = await api.post<Review>('/reviews', {
+    ...reviewData,
+    fromUserId: reviewData.fromUserId,
+  });
   return response.data;
 };
