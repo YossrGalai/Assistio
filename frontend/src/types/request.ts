@@ -1,27 +1,25 @@
 export type Request = {
-  _id: string;
+  id?: string;
   title: string;
   description: string;
   category: string;
-  urgency: string;
-  latitude: number;
-  longitude: number;
+  urgency: "low" | "medium" | "high";
+  latitude?: number;
+  longitude?: number;
   city?: string;
   gouvernorat?: string;
-  status: "pending" | "in_progress" | "done";
-  createdAt: string;
-  updatedAt: string;
+  status?: "pending" | "in_progress" | "done";
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type CreateRequestDTO = {
   title: string;
   description: string;
   category: string;
-  urgency: string;
-
+  urgency: "low" | "medium" | "high";
   latitude: number;
   longitude: number;
-
   city?: string;
   gouvernorat?: string;
 };

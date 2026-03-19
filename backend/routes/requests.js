@@ -1,6 +1,6 @@
 const express = require('express');
 const ServiceRequest = require('../models/ServiceRequest');
-const auth = require('../middleware/auth');
+const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
       .populate('author', 'name city profileImageUrl ratings')
       .populate('createdBy', 'name city profileImageUrl ratings')
       .sort({ createdAt: -1 });
-    res.json(requests.map(normalizeRequest));
+    res.json(requests.map((r, index) => normalizeRequest(r, index)));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -145,10 +145,52 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-function normalizeRequest(doc) {
+function normalizeRequest(doc, index = 0) {
   const r = doc.toObject ? doc.toObject() : doc;
 
-  // Accepter author OU createdBy selon ce qui est peuplé
+  const cityCoords = {
+    Tunis: { lat: 36.8065, lng: 10.1815 },
+    Sousse: { lat: 35.8256, lng: 10.6370 },
+    Sfax: { lat: 34.7406, lng: 10.7603 },
+    Nabeul: { lat: 36.4510, lng: 10.7350 },
+    Bizerte: { lat: 37.2744, lng: 9.8739 },
+    Monastir: { lat: 35.7643, lng: 10.8113 },
+    Ariana: { lat: 36.8625, lng: 10.1956 },
+    Manouba: { lat: 36.8100, lng: 10.0972 },
+    Gafsa: { lat: 34.4250, lng: 8.7842 },
+    Kairouan: { lat: 35.6712, lng: 10.1005 },
+    Gabès: { lat: 33.8881, lng: 10.0975 },
+    Médenine: { lat: 33.3549, lng: 10.4957 },
+    Kasserine: { lat: 35.1676, lng: 8.8365 },
+    SidiBouzid: { lat: 35.0382, lng: 9.4849 },
+    Jendouba: { lat: 36.5011, lng: 8.7757 },
+    Kef: { lat: 36.1740, lng: 8.7046 },
+    Siliana: { lat: 36.0849, lng: 9.3708 },
+    Zaghouan: { lat: 36.4021, lng: 10.1429 },
+    Béja: { lat: 36.7256, lng: 9.1817 },
+    Mahdia: { lat: 35.5047, lng: 11.0622 },
+    Tataouine: { lat: 32.9211, lng: 10.4508 },
+    Tozeur: { lat: 33.9197, lng: 8.1335 },
+    Kébili: { lat: 33.7042, lng: 8.9690 },
+  };
+
+  const cityKey = Object.keys(cityCoords).find(
+    k => k.toLowerCase() === (r.city || '').trim().toLowerCase()
+      || k.toLowerCase() === (r.gouvernorat || '').trim().toLowerCase()
+  );
+  if (!cityKey) {
+    console.warn(`⚠️ Ville non trouvée dans cityCoords: "${r.city}" / "${r.gouvernorat}"`);
+  }
+  const baseCoords = cityCoords[cityKey] || { lat: 36.8065, lng: 10.1815 };
+
+  // Offset déterministe basé sur l'_id (stable entre rechargements)
+  const angle = index * (2 * Math.PI / 8);
+  const radius = 0.004;
+  const coords = {
+    lat: baseCoords.lat + Math.cos(angle) * radius,
+    lng: baseCoords.lng + Math.sin(angle) * radius,
+  };
+
   const author =
     (r.author && typeof r.author === 'object' && r.author.name)
       ? r.author
@@ -164,6 +206,15 @@ function normalizeRequest(doc) {
   const avatarInitials = author.name
     ? author.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
+
+  console.log("FINAL COORDS:", {
+    id: r._id.toString(),
+    city: r.city,
+    cityKey,
+    baseCoords,
+    finalLat: r.latitude || coords.lat,
+    finalLng: r.longitude || coords.lng,
+  });
 
   return {
     id: r._id.toString(),
@@ -183,6 +234,8 @@ function normalizeRequest(doc) {
     commentsCount: r.commentsCount || 0,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    latitude: r.latitude || r.location?.coordinates?.[1] || coords.lat,
+    longitude: r.longitude || r.location?.coordinates?.[0] || coords.lng,
     author: {
       id: author._id?.toString() || '',
       name: author.name || 'Utilisateur',
