@@ -8,47 +8,39 @@ dotenv.config();
 const app = express();
 
 // Middleware
+const allowedOrigins = (process.env.FRONTEND_URLS || 'http://localhost:5173,http://127.0.0.1:5173')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
 
-// Connexion MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log(' MongoDB connecté'))
-  .catch((err) => console.error(' Erreur MongoDB :', err.message));
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, { dbName: "Assistio" })
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.error("MongoDB connection error:", err.message));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/requests', require('./routes/requests'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reviews', require('./routes/reviews'));
 
-const PORT = process.env.PORT || 5001;
-
+// Start server
+const PORT = process.env.PORT ||  5001;
 app.listen(PORT, () => {
-  console.log(` Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
-
-
-app.use(cors());
-app.use(express.json());
-
-app.use("/api/requests", require("./routes/requestRoutes"));
-
-app.listen(process.env.PORT, () => {
-  console.log(`Serveur lancé sur le port ${process.env.PORT}`);
-});
-mongoose.connect(process.env.MONGO_URI, { dbName: "Assistio" })
-  .then(() => console.log("MongoDB Connected"))
-  .catch(err => console.log(err));
-
-app.use("/api/users", require("./routes/userRoutes"));
-
-app.listen(5000, () => console.log("Server running"));
