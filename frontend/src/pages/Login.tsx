@@ -17,7 +17,7 @@ export default function Login() {
       const res = await fetch("http://localhost:5000/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
@@ -53,6 +53,7 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+
           <label>Password</label>
           <input
             type="password"
@@ -60,10 +61,12 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+
           <button type="submit" disabled={loading}>
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
         <p>
           Don't have an account?{" "}
           <span

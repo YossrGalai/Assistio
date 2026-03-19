@@ -27,13 +27,13 @@ export const getUserById = async (id: string): Promise<User> => {
   return response.data;
 };
 export const login = async (data: LoginData): Promise<{ token: string; user: User }> => {
-  const response = await api.post('/auth/login', data);
+  const response = await api.post('/users/login', data);
   localStorage.setItem('token', response.data.token);
   return response.data;
 };
 
 export const register = async (data: RegisterData): Promise<{ token: string; user: User }> => {
-  const response = await api.post('/auth/register', data);
+  const response = await api.post('/users/register', data);
   localStorage.setItem('token', response.data.token);
   return response.data;
 };
