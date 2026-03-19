@@ -43,39 +43,89 @@ export default function Login() {
 
   return (
     <div className="auth-container">
-      <div className="auth-box">
-        <h2>Login</h2>
-        <form onSubmit={handleSubmit}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+      <div className="auth-frame">
+        <div className="auth-left">
+          <div className="auth-brand">Assistio</div>
+          <h2>Aide demande d&apos;assistants</h2>
+          <p className="auth-subtitle">
+            Connectez-vous pour gerer vos demandes d&apos;aide en toute simplicite.
+          </p>
 
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nom@exemple.com"
+              required
+            />
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
+            <label>Mot de passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Votre mot de passe"
+              required
+            />
 
-        <p>
-          Don't have an account?{" "}
-          <span
-            style={{ cursor: "pointer", color: "blue" }}
-            onClick={() => navigate("/register")}
-          >
-            Register
-          </span>
-        </p>
+            <button className="auth-primary" type="submit" disabled={loading}>
+              {loading ? "Connexion..." : "Se connecter"}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            Pas de compte ?{" "}
+            <span onClick={() => navigate("/register")}>Creer un compte</span>
+          </p>
+        </div>
+
+        <div className="auth-right">
+          <div className="auth-hero">
+            <div className="hero-close">x</div>
+            <div className="hero-image" aria-hidden="true" />
+            <div className="hero-card hero-card-top">
+              <span className="hero-dot" />
+              <div>
+                <div className="hero-card-title">Revue d&apos;equipe</div>
+                <div className="hero-card-time">09:30 - 10:00</div>
+              </div>
+            </div>
+            <div className="hero-calendar">
+              <div className="hero-calendar-title">Mars</div>
+              <div className="hero-calendar-days">
+                <span>Lu</span>
+                <span>Ma</span>
+                <span>Me</span>
+                <span>Je</span>
+                <span>Ve</span>
+                <span>Sa</span>
+                <span>Di</span>
+              </div>
+              <div className="hero-calendar-dates">
+                <span>22</span>
+                <span>23</span>
+                <span className="active">24</span>
+                <span>25</span>
+                <span>26</span>
+                <span>27</span>
+                <span>28</span>
+              </div>
+            </div>
+            <div className="hero-card hero-card-bottom">
+              <div>
+                <div className="hero-card-title">Demande quotidienne</div>
+                <div className="hero-card-time">12:00 - 13:00</div>
+              </div>
+              <div className="hero-avatars">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
