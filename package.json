@@ -6,7 +6,7 @@
     "dev-backend": "cd backend && npm run dev"
   },
   "dependencies": {
-<<<<<<< HEAD
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
@@ -17,30 +17,20 @@
     "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.13.1",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",
     "@types/leaflet": "^1.9.21",
-    "@types/react": "^18.3.28",
-    "@types/react-dom": "^18.3.7",
-    "@types/react-router-dom": "^5.3.3",
-    "typescript": "^5.9.3"
-=======
-    "@radix-ui/react-select": "^2.2.6",
-    "axios": "^1.13.5",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.0"
-  },
-  "devDependencies": {
-    "@types/axios": "^0.9.36",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.0.0",
-    "@types/react-router-dom": "^5.3.3"
->>>>>>> 2a1491f67ca9cdabfd569088ce57538fc04a21d2
+    "@types/react-router-dom": "^5.3.3",
+    "typescript": "^5.9.3"
   }
 }

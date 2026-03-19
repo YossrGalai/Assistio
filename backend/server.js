@@ -60,9 +60,7 @@ app.use('/api/request-detail', require('./routes/requestDetail'));
 
 // Start server
 const PORT = process.env.PORT ||  5001;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+
 // Socket.io — gestion des connexions
 io.on('connection', (socket) => {
   console.log(`🔌 Client connecté: ${socket.id}`);
@@ -78,18 +76,16 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5001;
+
 server.listen(PORT, () => {
   console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
 });
-<<<<<<< HEAD
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
 
 
 
+
+
+/*
 app.use(cors());
 app.use(express.json());
 
@@ -105,5 +101,4 @@ mongoose.connect(process.env.MONGO_URI, { dbName: "Assistio" })
 app.use("/api/users", require("./routes/userRoutes"));
 
 app.listen(5000, () => console.log("Server running"));
-=======
->>>>>>> 2a1491f67ca9cdabfd569088ce57538fc04a21d2
+*/

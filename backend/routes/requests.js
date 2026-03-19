@@ -26,12 +26,11 @@ router.get('/', async (req, res) => {
     if (type) filter.type = type;
     if (urgent === 'true') filter.$or = [{ urgent: true }, { urgency: 'high' }];
 
-    
-    
-      .populate('createdBy', 'name city profileImageUrl ratings')
+    // Correct chaining
+    const requests = await ServiceRequest.find(filter)
+      .populate('createdBy', 'name city profileImageUrl ratings') // <--- now properly chained
       .sort({ createdAt: -1 });
-    res.json(requests.map((r, index) => normalizeRequest(r, index)));
-    const requests = await ServiceRequest.find(filter).sort({ createdAt: -1 });
+
     const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
     res.json(normalized);
   } catch (error) {
