@@ -25,15 +25,10 @@ router.get('/', async (req, res) => {
     if (city) filter.$or = [{ city: new RegExp(city, 'i') }, { gouvernorat: new RegExp(city, 'i') }];
     if (type) filter.type = type;
     if (urgent === 'true') filter.$or = [{ urgent: true }, { urgency: 'high' }];
-
-    const requests = await ServiceRequest.find(filter)
-      .populate('author', 'name city profileImageUrl ratings')
-      .populate('createdBy', 'name city profileImageUrl ratings')
-      .sort({ createdAt: -1 });
-    res.json(requests.map((r, index) => normalizeRequest(r, index)));
+    
     const requests = await ServiceRequest.find(filter).sort({ createdAt: -1 });
     const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
-    res.json(normalized);
+    res.json(requests.map((r, index) => normalizeRequest(r, index)));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -275,5 +270,5 @@ async function normalizeRequestWithUser(doc) {
     },
   };
 }
-
+}
 module.exports = router;
