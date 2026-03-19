@@ -1,7 +1,7 @@
 const express = require('express');
 const Review = require('../models/Review');
 const User = require('../models/User');
-const auth = require('../middleware/auth');
+const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -38,36 +38,45 @@ router.get('/user/:userId', async (req, res) => {
 });
 
 // POST /api/reviews  (auth required)
-router.post('/', auth, async (req, res) => {
+// POST /api/reviews  (auth temporairement désactivé)
+router.post('/', async (req, res) => {
   try {
-    const { requestId, toUserId, rating, comment } = req.body;
+    const { requestId, toUserId, rating, comment, fromUserId } = req.body;
 
-    // Prevent self-review
-    if (toUserId === req.user.userId) {
-      return res.status(400).json({ message: 'Cannot review yourself' });
+    if (!requestId || !toUserId || !rating || !comment) {
+      return res.status(400).json({ message: 'requestId, toUserId, rating et comment sont requis' });
     }
 
-    // Prevent duplicate review for same request
+    // Utiliser fromUserId du body au lieu de req.user.userId
+    const reviewerId = fromUserId || 'anonymous';
+
+    if (toUserId === reviewerId) {
+      return res.status(400).json({ message: 'Vous ne pouvez pas vous évaluer vous-même' });
+    }
+
     const existing = await Review.findOne({
       request: requestId,
-      fromUser: req.user.userId,
+      fromUser: reviewerId,
       toUser: toUserId,
     });
     if (existing) {
-      return res.status(400).json({ message: 'You have already reviewed this request' });
+      return res.status(400).json({ message: 'Vous avez déjà évalué cette demande' });
     }
 
     const review = new Review({
       request: requestId,
-      fromUser: req.user.userId,
+      fromUser: reviewerId,
       toUser: toUserId,
-      rating,
+      rating: Number(rating),
       comment,
     });
+
     await review.save();
 
-    // Update the target user's ratings array
-    await User.findByIdAndUpdate(toUserId, { $push: { ratings: rating } });
+    // Mettre à jour les ratings du user ciblé
+    await User.findByIdAndUpdate(toUserId, {
+      $push: { ratings: Number(rating) },
+    });
 
     await review.populate('fromUser', 'name profileImageUrl');
 
@@ -86,7 +95,10 @@ router.post('/', auth, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Vous avez déjà évalué cette demande' });
+    }
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 

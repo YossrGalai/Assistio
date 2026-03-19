@@ -1,6 +1,8 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const ServiceRequest = require('../models/ServiceRequest');
-const auth = require('../middleware/auth');
+const User = require('../models/User');
+const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -24,45 +26,52 @@ router.get('/', async (req, res) => {
     if (type) filter.type = type;
     if (urgent === 'true') filter.$or = [{ urgent: true }, { urgency: 'high' }];
 
-    const requests = await ServiceRequest.find(filter)
-      .populate('author', 'name city profileImageUrl ratings')
-      .populate('createdBy', 'name city profileImageUrl ratings')
-      .sort({ createdAt: -1 });
-    res.json(requests.map(normalizeRequest));
+    const requests = await ServiceRequest.find(filter).sort({ createdAt: -1 });
+    const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 2. GET /api/requests/user/:userId  ← AVANT /:id
+// 2. GET /api/requests/user/:userId ← AVANT /:id
 router.get('/user/:userId', async (req, res) => {
   try {
-    const requests = await ServiceRequest.find({
-      $or: [
-        { author: req.params.userId },
-        { createdBy: req.params.userId },
-      ]
-    })
-      .populate('author', 'name city profileImageUrl ratings')
-      .populate('createdBy', 'name city profileImageUrl ratings')
+    const { userId } = req.params;
+
+    // Chercher par string ET par ObjectId pour couvrir les deux cas
+    const orConditions = [
+      { createdBy: userId },
+      { author: userId },
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      const objectId = new mongoose.Types.ObjectId(userId);
+      orConditions.push({ createdBy: objectId });
+      orConditions.push({ author: objectId });
+    }
+
+    const requests = await ServiceRequest.find({ $or: orConditions })
       .sort({ createdAt: -1 });
-    res.json(requests.map(normalizeRequest));
+
+    console.log(`✅ Trouvé ${requests.length} demandes pour userId: ${userId}`);
+
+    const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 3. GET /api/requests/:id  ← APRÈS /user/:userId
+// 3. GET /api/requests/:id ← APRÈS /user/:userId
 router.get('/:id', async (req, res) => {
   try {
-    const request = await ServiceRequest.findById(req.params.id)
-      .populate('author', 'name city profileImageUrl ratings')
-      .populate('createdBy', 'name city profileImageUrl ratings')
-      .populate('assignedTo', 'name city profileImageUrl');
+    const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
-    res.json(normalizeRequest(request));
+    const normalized = await normalizeRequestWithUser(request);
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -91,8 +100,8 @@ router.post('/', auth, async (req, res) => {
       status: 'pending',
     });
     await request.save();
-    await request.populate('author', 'name city profileImageUrl ratings');
-    res.status(201).json(normalizeRequest(request));
+    const normalized = await normalizeRequestWithUser(request);
+    res.status(201).json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -105,8 +114,7 @@ router.put('/:id', auth, async (req, res) => {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    // Vérifier author OU createdBy
-    const ownerId = request.author?.toString() || request.createdBy?.toString();
+    const ownerId = (request.author || request.createdBy || '').toString();
     if (ownerId !== req.user.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -116,8 +124,8 @@ router.put('/:id', auth, async (req, res) => {
     if (req.body.urgency) request.urgent = req.body.urgency === 'high';
     if (req.body.city) request.location = req.body.city;
     await request.save();
-    await request.populate('author', 'name city profileImageUrl ratings');
-    res.json(normalizeRequest(request));
+    const normalized = await normalizeRequestWithUser(request);
+    res.json(normalized);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -130,8 +138,7 @@ router.delete('/:id', auth, async (req, res) => {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    // Vérifier author OU createdBy
-    const ownerId = request.author?.toString() || request.createdBy?.toString();
+    const ownerId = (request.author || request.createdBy || '').toString();
     if (ownerId !== req.user.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -144,25 +151,31 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-function normalizeRequest(doc) {
+// ─── Helper : charge l'auteur via User.findById (fonctionne string ET ObjectId)
+async function normalizeRequestWithUser(doc) {
   const r = doc.toObject ? doc.toObject() : doc;
 
-  // Accepter author OU createdBy selon ce qui est peuplé
-  const author =
-    (r.author && typeof r.author === 'object' && r.author.name)
-      ? r.author
-      : (r.createdBy && typeof r.createdBy === 'object' && r.createdBy.name)
-      ? r.createdBy
-      : {};
+  // Prendre author ou createdBy
+  const authorId = r.author || r.createdBy;
 
-  const ratings = author.ratings || [];
+  let authorData = {};
+  if (authorId) {
+    try {
+      const user = await User.findById(authorId.toString())
+        .select('name city profileImageUrl ratings');
+      if (user) authorData = user.toObject();
+    } catch {
+      // ID invalide → on continue avec données vides
+    }
+  }
+
+  const ratings = authorData.ratings || [];
   const avgRating = ratings.length
     ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
     : 0;
 
-  const avatarInitials = author.name
-    ? author.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+  const avatarInitials = authorData.name
+    ? authorData.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
 
   return {
@@ -184,12 +197,12 @@ function normalizeRequest(doc) {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     author: {
-      id: author._id?.toString() || '',
-      name: author.name || 'Utilisateur',
+      id: authorData._id?.toString() || authorId?.toString() || '',
+      name: authorData.name || 'Utilisateur',
       avatar: avatarInitials,
       rating: avgRating,
-      city: author.city || '',
-      profileImageUrl: author.profileImageUrl || '',
+      city: authorData.city || '',
+      profileImageUrl: authorData.profileImageUrl || '',
     },
   };
 }
