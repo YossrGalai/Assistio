@@ -25,14 +25,10 @@ router.get('/', async (req, res) => {
     if (city) filter.$or = [{ city: new RegExp(city, 'i') }, { gouvernorat: new RegExp(city, 'i') }];
     if (type) filter.type = type;
     if (urgent === 'true') filter.$or = [{ urgent: true }, { urgency: 'high' }];
-
-    // Correct chaining
-    const requests = await ServiceRequest.find(filter)
-      .populate('createdBy', 'name city profileImageUrl ratings') // <--- now properly chained
-      .sort({ createdAt: -1 });
-
+    
+    const requests = await ServiceRequest.find(filter).sort({ createdAt: -1 });
     const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
-    res.json(normalized);
+    res.json(requests.map((r, index) => normalizeRequest(r, index)));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
