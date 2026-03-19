@@ -1,4 +1,4 @@
-import { BrowserRouter , Routes, Route } from "react-router-dom";
+import { BrowserRouter , Routes, Route} from "react-router-dom";
 import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -30,7 +30,7 @@ const App = () => (
           <Route path="/create" element={<CreateRequest />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/profile" element={<Profile />} />  
+          
           <Route path="/request/:id" element={<RequestDetail />} />
           <Route path="/requests" element={<Requests />} />  
           <Route path="/notifications" element={<Notifications />} />        
@@ -41,4 +41,3 @@ const App = () => (
 );
 
 export default App;
-
