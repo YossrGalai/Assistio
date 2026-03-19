@@ -1,5 +1,14 @@
 const mongoose = require("mongoose");
 
+RequestSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    ret._id = ret._id.toString();
+    delete ret.__v;
+    return ret;
+  }
+});
+res.json(requests);
+
 const requestSchema = new mongoose.Schema(
   {
     title: {

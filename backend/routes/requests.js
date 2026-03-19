@@ -12,6 +12,105 @@ const STATUS_MAP = {
   terminée: 'terminée', annulée: 'annulée',
 };
 
+const CITY_COORDS = {
+  Tunis: { lat: 36.8065, lng: 10.1815 },
+  Sousse: { lat: 35.8256, lng: 10.6370 },
+  Sfax: { lat: 34.7406, lng: 10.7603 },
+  Nabeul: { lat: 36.4510, lng: 10.7350 },
+  Bizerte: { lat: 37.2744, lng: 9.8739 },
+  Monastir: { lat: 35.7643, lng: 10.8113 },
+  Ariana: { lat: 36.8625, lng: 10.1956 },
+  Manouba: { lat: 36.8100, lng: 10.0972 },
+  Gafsa: { lat: 34.4250, lng: 8.7842 },
+  Kairouan: { lat: 35.6712, lng: 10.1005 },
+  Gabès: { lat: 33.8881, lng: 10.0975 },
+  Médenine: { lat: 33.3549, lng: 10.4957 },
+  Kasserine: { lat: 35.1676, lng: 8.8365 },
+  SidiBouzid: { lat: 35.0382, lng: 9.4849 },
+  Jendouba: { lat: 36.5011, lng: 8.7757 },
+  Kef: { lat: 36.1740, lng: 8.7046 },
+  Siliana: { lat: 36.0849, lng: 9.3708 },
+  Zaghouan: { lat: 36.4021, lng: 10.1429 },
+  Béja: { lat: 36.7256, lng: 9.1817 },
+  Mahdia: { lat: 35.5047, lng: 11.0622 },
+  Tataouine: { lat: 32.9211, lng: 10.4508 },
+  Tozeur: { lat: 33.9197, lng: 8.1335 },
+  Kébili: { lat: 33.7042, lng: 8.9690 },
+};
+
+// ─── Helper : résout les coordonnées d'une requête ───────────────────────────
+function resolveCoords(r, index = 0) {
+  const cityKey = Object.keys(CITY_COORDS).find(
+    k => k.toLowerCase() === (r.city || '').trim().toLowerCase()
+      || k.toLowerCase() === (r.gouvernorat || '').trim().toLowerCase()
+  );
+  const baseCoords = CITY_COORDS[cityKey] || { lat: 36.8065, lng: 10.1815 };
+  const angle = index * (2 * Math.PI / 8);
+  const radius = 0.004;
+  return {
+    lat: baseCoords.lat + Math.cos(angle) * radius,
+    lng: baseCoords.lng + Math.sin(angle) * radius,
+  };
+}
+
+// ─── Helper principal : normalise avec User.findById ─────────────────────────
+async function normalizeRequestWithUser(doc, index = 0) {
+  const r = doc.toObject ? doc.toObject() : doc;
+  const authorId = r.author || r.createdBy;
+
+  let authorData = {};
+  if (authorId) {
+    try {
+      const user = await User.findById(authorId.toString())
+        .select('name city profileImageUrl ratings');
+      if (user) authorData = user.toObject();
+    } catch {
+      // ID invalide → on continue avec données vides
+    }
+  }
+
+  const ratings = authorData.ratings || [];
+  const avgRating = ratings.length
+    ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+    : 0;
+
+  const avatarInitials = authorData.name
+    ? authorData.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '??';
+
+  const coords = resolveCoords(r, index);
+
+  return {
+    id: r._id.toString(),
+    title: r.title,
+    description: r.description,
+    category: (r.category || '').toLowerCase(),
+    location: r.city || r.location || r.gouvernorat || '',
+    city: r.city || '',
+    gouvernorat: r.gouvernorat || '',
+    status: STATUS_MAP[r.status] || r.status,
+    budget: r.budget || 'À négocier',
+    type: r.type || 'service',
+    urgent: r.urgent || r.urgency === 'high',
+    urgency: r.urgency || 'low',
+    image: r.image || '',
+    volunteersCount: r.volunteersCount || 0,
+    commentsCount: r.commentsCount || 0,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    latitude: r.latitude || r.location?.coordinates?.[1] || coords.lat,
+    longitude: r.longitude || r.location?.coordinates?.[0] || coords.lng,
+    author: {
+      id: authorData._id?.toString() || authorId?.toString() || '',
+      name: authorData.name || 'Utilisateur',
+      avatar: avatarInitials,
+      rating: avgRating,
+      city: authorData.city || '',
+      profileImageUrl: authorData.profileImageUrl || '',
+    },
+  };
+}
+
 // 1. GET /api/requests
 router.get('/', async (req, res) => {
   try {
@@ -27,7 +126,8 @@ router.get('/', async (req, res) => {
     if (urgent === 'true') filter.$or = [{ urgent: true }, { urgency: 'high' }];
 
     const requests = await ServiceRequest.find(filter).sort({ createdAt: -1 });
-    const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
+    // ✅ On utilise bien le résultat de normalizeRequestWithUser
+    const normalized = await Promise.all(requests.map((r, i) => normalizeRequestWithUser(r, i)));
     res.json(normalized);
   } catch (error) {
     console.error(error);
@@ -35,29 +135,17 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 2. GET /api/requests/user/:userId ← AVANT /:id
+// 2. GET /api/requests/user/:userId
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-
-    // Chercher par string ET par ObjectId pour couvrir les deux cas
-    const orConditions = [
-      { createdBy: userId },
-      { author: userId },
-    ];
-
+    const orConditions = [{ createdBy: userId }, { author: userId }];
     if (mongoose.Types.ObjectId.isValid(userId)) {
       const objectId = new mongoose.Types.ObjectId(userId);
-      orConditions.push({ createdBy: objectId });
-      orConditions.push({ author: objectId });
+      orConditions.push({ createdBy: objectId }, { author: objectId });
     }
-
-    const requests = await ServiceRequest.find({ $or: orConditions })
-      .sort({ createdAt: -1 });
-
-    console.log(`✅ Trouvé ${requests.length} demandes pour userId: ${userId}`);
-
-    const normalized = await Promise.all(requests.map(r => normalizeRequestWithUser(r)));
+    const requests = await ServiceRequest.find({ $or: orConditions }).sort({ createdAt: -1 });
+    const normalized = await Promise.all(requests.map((r, i) => normalizeRequestWithUser(r, i)));
     res.json(normalized);
   } catch (error) {
     console.error(error);
@@ -65,7 +153,7 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// 3. GET /api/requests/:id ← APRÈS /user/:userId
+// 3. GET /api/requests/:id
 router.get('/:id', async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
@@ -113,12 +201,8 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
-
     const ownerId = (request.author || request.createdBy || '').toString();
-    if (ownerId !== req.user.userId) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
+    if (ownerId !== req.user.userId) return res.status(403).json({ message: 'Not authorized' });
     const allowedFields = ['title', 'description', 'category', 'city', 'gouvernorat', 'budget', 'type', 'urgency', 'image', 'status'];
     allowedFields.forEach(f => { if (req.body[f] !== undefined) request[f] = req.body[f]; });
     if (req.body.urgency) request.urgent = req.body.urgency === 'high';
@@ -137,12 +221,8 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
-
     const ownerId = (request.author || request.createdBy || '').toString();
-    if (ownerId !== req.user.userId) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
+    if (ownerId !== req.user.userId) return res.status(403).json({ message: 'Not authorized' });
     await request.deleteOne();
     res.json({ message: 'Request deleted' });
   } catch (error) {
@@ -150,61 +230,5 @@ router.delete('/:id', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-// ─── Helper : charge l'auteur via User.findById (fonctionne string ET ObjectId)
-async function normalizeRequestWithUser(doc) {
-  const r = doc.toObject ? doc.toObject() : doc;
-
-  // Prendre author ou createdBy
-  const authorId = r.author || r.createdBy;
-
-  let authorData = {};
-  if (authorId) {
-    try {
-      const user = await User.findById(authorId.toString())
-        .select('name city profileImageUrl ratings');
-      if (user) authorData = user.toObject();
-    } catch {
-      // ID invalide → on continue avec données vides
-    }
-  }
-
-  const ratings = authorData.ratings || [];
-  const avgRating = ratings.length
-    ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
-    : 0;
-
-  const avatarInitials = authorData.name
-    ? authorData.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : '??';
-
-  return {
-    id: r._id.toString(),
-    title: r.title,
-    description: r.description,
-    category: (r.category || '').toLowerCase(),
-    location: r.city || r.location || r.gouvernorat || '',
-    city: r.city || '',
-    gouvernorat: r.gouvernorat || '',
-    status: STATUS_MAP[r.status] || r.status,
-    budget: r.budget || 'À négocier',
-    type: r.type || 'service',
-    urgent: r.urgent || r.urgency === 'high',
-    urgency: r.urgency || 'low',
-    image: r.image || '',
-    volunteersCount: r.volunteersCount || 0,
-    commentsCount: r.commentsCount || 0,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-    author: {
-      id: authorData._id?.toString() || authorId?.toString() || '',
-      name: authorData.name || 'Utilisateur',
-      avatar: avatarInitials,
-      rating: avgRating,
-      city: authorData.city || '',
-      profileImageUrl: authorData.profileImageUrl || '',
-    },
-  };
-}
 
 module.exports = router;
