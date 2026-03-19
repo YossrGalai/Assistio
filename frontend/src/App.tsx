@@ -3,7 +3,7 @@ import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
+import "leaflet/dist/leaflet.css";
 import RequestsMap from "./pages/Requests/RequestsMap";
 import CreateRequest from "./pages/Requests/CreateRequest";
 import Home from "./pages/Home";

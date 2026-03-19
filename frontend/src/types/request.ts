@@ -11,6 +11,14 @@ export type Request = {
   status?: "pending" | "in_progress" | "done";
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string;
+  author?: {
+    id: string;
+    name: string;
+    rating: number;
+    city: string;
+    profileImageUrl: string;
+  };
 };
 
 export type CreateRequestDTO = {

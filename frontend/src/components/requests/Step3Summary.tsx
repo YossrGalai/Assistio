@@ -125,10 +125,15 @@ export default function Step3Summary({ formData, prevStep }: Props) {
 
         <div style={rowStyle}>
           <span style={keyStyle}>Localisation</span>
-          <span style={{ ...valStyle, fontFamily: "monospace", fontSize: "13px", color: "#a5b4fc" }}>
-            {formData.latitude !== 0
-              ? `${formData.latitude?.toFixed(5)}, ${formData.longitude?.toFixed(5)}`
+          <span style={valStyle}>
+            {formData.gouvernorat
+              ? `${formData.gouvernorat}${formData.city ? ` › ${formData.city}` : ""}`
               : "—"}
+            {formData.latitude !== 0 && (
+              <span style={{ display: "block", fontSize: "11px", color: "#6b7280", marginTop: "4px", fontFamily: "monospace" }}>
+                {formData.latitude?.toFixed(5)}, {formData.longitude?.toFixed(5)}
+              </span>
+            )}
           </span>
         </div>
 
