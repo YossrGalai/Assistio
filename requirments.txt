@@ -10,3 +10,5 @@ npm install lucide-react
 npm install @radix-ui/react-tooltip
 npm install framer-motion
 npm install tailwind-merge
+npm install socket.io
+npm install socket.io-client

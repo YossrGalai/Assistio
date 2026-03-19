@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Bell, UserPlus, CheckCircle, CheckCheck, MessageSquare, Star, Info } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { getNotifications, markAsRead, markAllAsRead, type AppNotification } from "../api/notifications";
-import { isAuthenticated } from "../api/auth";
+import { getSocket } from "../api/socket";
 import { motion, AnimatePresence } from "framer-motion";
 
 type NotificationType = AppNotification["type"];
@@ -33,26 +33,30 @@ const NotificationBell = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      setLoading(false);
-      return;
-    }
-
+    // Charger les notifications initiales
     const fetchNotifications = async () => {
       try {
         const data = await getNotifications();
         setNotifications(data);
-      } catch (error) {
-        console.error("Erreur lors du chargement des notifications :", error);
+      } catch {
+        setNotifications([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchNotifications();
 
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    // Connexion Socket.io pour les notifs en temps réel
+    const socket = getSocket();
+
+    socket.on('new_notification', (notif: AppNotification) => {
+      console.log('🔔 Nouvelle notification reçue:', notif);
+      setNotifications((prev) => [notif, ...prev]);
+    });
+
+    return () => {
+      socket.off('new_notification');
+    };
   }, []);
 
   useEffect(() => {
@@ -71,8 +75,8 @@ const NotificationBell = () => {
     try {
       await markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch (error) {
-      console.error("Erreur markAllAsRead :", error);
+    } catch {
+      // silencieux
     }
   };
 
@@ -82,11 +86,10 @@ const NotificationBell = () => {
     );
     try {
       await markAsRead(id);
-    } catch (error) {
+    } catch {
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: false } : n))
       );
-      console.error("Erreur markAsRead :", error);
     }
   };
 
@@ -99,8 +102,6 @@ const NotificationBell = () => {
     if (hours < 24) return `Il y a ${hours}h`;
     return `Il y a ${Math.floor(hours / 24)}j`;
   };
-
-  if (!isAuthenticated()) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -128,7 +129,6 @@ const NotificationBell = () => {
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-card shadow-elevated sm:w-96"
           >
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="text-sm font-bold text-foreground">Notifications</h3>
               <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ const NotificationBell = () => {
                     Tout marquer lu
                   </button>
                 )}
-                <Link to="/dashboard" onClick={() => setOpen(false)}>
+                <Link to="/notifications" onClick={() => setOpen(false)}>
                   <span className="text-xs font-medium text-muted-foreground hover:text-foreground">
                     Voir tout
                   </span>
@@ -148,7 +148,6 @@ const NotificationBell = () => {
               </div>
             </div>
 
-            {/* Liste */}
             <div className="max-h-80 overflow-y-auto">
               {loading ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -169,11 +168,7 @@ const NotificationBell = () => {
                       }`}
                       onClick={() => handleMarkAsRead(notif.id)}
                     >
-                      <div
-                        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted ${
-                          iconColorMap[notif.type] ?? "text-muted-foreground"
-                        }`}
-                      >
+                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted ${iconColorMap[notif.type] ?? "text-muted-foreground"}`}>
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -200,7 +195,7 @@ const NotificationBell = () => {
 
             {notifications.length > 5 && (
               <div className="border-t border-border px-4 py-2 text-center">
-                <Link to="/dashboard" onClick={() => setOpen(false)}>
+                <Link to="/notifications" onClick={() => setOpen(false)}>
                   <span className="text-xs font-medium text-primary hover:underline">
                     Voir les {notifications.length - 5} autres
                   </span>

@@ -1,26 +1,39 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState } from "react";
 import { Star, Send } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { useToast } from "../hooks/use-toast";
 import { motion } from "framer-motion";
+import { createReview } from "../api/reviews";
 
 interface ReviewFormProps {
+  requestId: string;
   requestTitle: string;
+  targetUserId: string;
   targetUserName: string;
-  onSubmit?: (rating: number, comment: string) => void;
+  fromUserId: string;
+  onSubmit?: () => void;
 }
 
-const ReviewForm = ({ requestTitle, targetUserName, onSubmit }: ReviewFormProps) => {
+const ReviewForm = ({
+  requestId,
+  requestTitle,
+  targetUserId,
+  targetUserName,
+  fromUserId,
+  onSubmit,
+}: ReviewFormProps) => {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const ratingLabels = ["", "Décevant", "Passable", "Bien", "Très bien", "Excellent"];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (rating === 0) {
       toast({
         title: "Note requise",
@@ -30,12 +43,44 @@ const ReviewForm = ({ requestTitle, targetUserName, onSubmit }: ReviewFormProps)
       return;
     }
 
-    onSubmit?.(rating, comment);
-    setSubmitted(true);
-    toast({
-      title: "Avis envoyé !",
-      description: `Merci d'avoir évalué ${targetUserName}.`,
-    });
+    if (!comment.trim()) {
+      toast({
+        title: "Commentaire requis",
+        description: "Veuillez écrire un commentaire.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Appel API — sauvegarde en DB + met à jour ratings du user ciblé
+      await createReview({
+        requestId,
+        toUserId: targetUserId,
+        rating,
+        comment: comment.trim(),
+        fromUserId,
+      });
+
+      setSubmitted(true);
+      toast({
+        title: "Avis envoyé !",
+        description: `Merci d'avoir évalué ${targetUserName}.`,
+      });
+      onSubmit?.();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Erreur lors de l'envoi";
+      toast({
+        title: "Erreur",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -56,7 +101,9 @@ const ReviewForm = ({ requestTitle, targetUserName, onSubmit }: ReviewFormProps)
           {Array.from({ length: 5 }, (_, i) => (
             <Star
               key={i}
-              className={`h-5 w-5 ${i < rating ? "fill-accent text-accent" : "text-muted-foreground/30"}`}
+              className={`h-5 w-5 ${
+                i < rating ? "fill-accent text-accent" : "text-muted-foreground/30"
+              }`}
             />
           ))}
         </div>
@@ -68,10 +115,10 @@ const ReviewForm = ({ requestTitle, targetUserName, onSubmit }: ReviewFormProps)
     <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
       <h3 className="mb-1 text-lg font-bold text-foreground">Évaluer le service</h3>
       <p className="mb-4 text-sm text-muted-foreground">
-        Comment s'est passé « {requestTitle} » avec <strong>{targetUserName}</strong> ?
+        Comment s'est passé «{requestTitle}» avec <strong>{targetUserName}</strong> ?
       </p>
 
-      {/* Star rating */}
+      {/* Étoiles */}
       <div className="mb-4">
         <div className="flex items-center gap-1">
           {Array.from({ length: 5 }, (_, i) => {
@@ -103,18 +150,23 @@ const ReviewForm = ({ requestTitle, targetUserName, onSubmit }: ReviewFormProps)
         </div>
       </div>
 
-      {/* Comment */}
+      {/* Commentaire */}
       <Textarea
-        placeholder="Décrivez votre expérience (optionnel)..."
+        placeholder="Décrivez votre expérience..."
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         rows={3}
         className="mb-4"
       />
 
-      <Button variant="hero" className="w-full gap-1.5" onClick={handleSubmit}>
+      <Button
+        variant="hero"
+        className="w-full gap-1.5"
+        onClick={handleSubmit}
+        disabled={loading || rating === 0}
+      >
         <Send className="h-4 w-4" />
-        Envoyer mon avis
+        {loading ? "Envoi en cours..." : "Envoyer mon avis"}
       </Button>
     </div>
   );

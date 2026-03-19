@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const serviceRequestSchema = new mongoose.Schema({
-  id: { type: String },  // legacy string id from DB
+  requestId: { type: String },
+  id: { type: String },  
   title: { type: String, required: true, trim: true },
   description: { type: String, required: true, trim: true },
   category: { type: String, required: true },
@@ -20,7 +21,7 @@ const serviceRequestSchema = new mongoose.Schema({
   budget: { type: String },
   type: { type: String, enum: ['service', 'recherche'], default: 'service' },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: String },  
   volunteersCount: { type: Number, default: 0 },
   commentsCount: { type: Number, default: 0 },
   image: { type: String },
