@@ -49,7 +49,15 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5001;
+mongoose.connection.once('open', async () => {
+  try {
+    await mongoose.connection.collection('requests').dropIndex('location_2dsphere');
+    console.log('✅ Index géospatial supprimé');
+  } catch (e) {
+    // Index n'existe pas → pas de problème
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
 });

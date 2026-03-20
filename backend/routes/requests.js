@@ -169,7 +169,7 @@ router.get('/:id', async (req, res) => {
 // 4. POST /api/requests
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, description, category, city, gouvernorat, budget, type, urgency, image } = req.body;
+    const { title, description, category, city, gouvernorat, budget, type, urgency, image, latitude, longitude } = req.body;
     if (!title || !description || !category) {
       return res.status(400).json({ message: 'Titre, description et catégorie sont requis' });
     }
@@ -186,6 +186,8 @@ router.post('/', auth, async (req, res) => {
       author: req.user.userId,
       createdBy: req.user.userId,
       status: 'pending',
+      latitude: latitude || null,
+      longitude: longitude || null,
     });
     await request.save();
     const normalized = await normalizeRequestWithUser(request);

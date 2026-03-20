@@ -1,13 +1,12 @@
 import { Marker, Popup } from "react-leaflet";
 import type { Request } from "../../types/request";
 
-
 export default function RequestMarker({ request }: { request: Request }) {
-  if (!request.latitude || !request.longitude) return null;
+  if (request.latitude == null || request.longitude == null) return null;
 
   return (
     <Marker position={[request.latitude, request.longitude]}>
-      <Popup>
+      <Popup> 
         <div className="p-2 w-64">
           <h3 className="font-bold text-lg">{request.title}</h3>
           <p className="text-sm">{request.description}</p>
