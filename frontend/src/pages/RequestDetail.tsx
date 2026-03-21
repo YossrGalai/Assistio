@@ -16,8 +16,9 @@ import {
   getRequestDetail, addComment, acceptVolunteer,
   rejectVolunteer, finishRequest, cancelRequest,
   type RequestDetail as RequestDetailType,
-  type Volunteer,
+  type Volunteer,applyToRequest
 } from "../api/requestDetail";
+import { getProfile, type User as UserType } from "../api/auth";
 
 const statusLabels: Record<string, string> = {
   ouverte: "Ouverte",
@@ -33,26 +34,37 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   annulée: "destructive",
 };
 
-// ID temporaire jusqu'à auth
-const TEMP_USER_ID = "69b9adf10f9a5013de84ad64";
-const TEMP_USER_NAME = "Omar Gharbi";
-
 const RequestDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [request, setRequest] = useState<RequestDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [acceptedVolunteer, setAcceptedVolunteer] = useState<Volunteer | null>(null);
+  const [hasApplied, setHasApplied] = useState(false);
 
+  // Charger l'utilisateur connecté
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await getProfile();
+        setCurrentUser(user);
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  // Charger le détail de la demande
   useEffect(() => {
     if (!id) return;
     const fetchDetail = async () => {
       try {
         const data = await getRequestDetail(id);
         setRequest(data);
-        // Trouver le volunteer accepté si existe
         const accepted = data.volunteers.find(v => v.status === 'accepted');
         if (accepted) setAcceptedVolunteer(accepted);
       } catch (error) {
@@ -63,6 +75,15 @@ const RequestDetail = () => {
     };
     fetchDetail();
   }, [id]);
+
+  // Vérifier si l'utilisateur a déjà postulé
+  useEffect(() => {
+    if (!currentUser || !request) return;
+    const alreadyApplied = request.volunteers.some(v => v.userId === currentUser.id);
+    setHasApplied(alreadyApplied);
+  }, [currentUser, request]);
+
+  const isAuthor = currentUser && request && request.author.id === currentUser.id;
 
   const handleAcceptCandidate = async (volunteer: Volunteer) => {
     if (!id) return;
@@ -99,17 +120,17 @@ const RequestDetail = () => {
     }
   };
 
- const handleFinish = async () => {
-  if (!id) return;
-  try {
-    await finishRequest(id);
-    setRequest(prev => prev ? { ...prev, status: 'terminée' } : prev);
-    setShowReview(true);
-    toast.success("Demande marquée comme terminée !");
-  } catch {
-    toast.error("Erreur");
-  }
-};
+  const handleFinish = async () => {
+    if (!id) return;
+    try {
+      await finishRequest(id);
+      setRequest(prev => prev ? { ...prev, status: 'terminée' } : prev);
+      setShowReview(true);
+      toast.success("Demande marquée comme terminée !");
+    } catch {
+      toast.error("Erreur");
+    }
+  };
 
   const handleCancel = async () => {
     if (!id) return;
@@ -122,14 +143,30 @@ const RequestDetail = () => {
     }
   };
 
+  const handleApply = async () => {
+  if (!currentUser || !request || !id) return;
+  try {
+    const newVolunteer = await applyToRequest(id);
+    setHasApplied(true);
+    setRequest(prev => prev ? {
+      ...prev,
+      volunteers: [...prev.volunteers, newVolunteer],
+      volunteersCount: prev.volunteersCount + 1,
+    } : prev);
+    toast.success("Votre candidature a été envoyée !");
+  } catch {
+    toast.error("Erreur lors de la candidature");
+  }
+};
+
   const handleSendComment = async () => {
-    if (!id || !commentText.trim()) return;
+    if (!id || !commentText.trim() || !currentUser) return;
     try {
       setSendingComment(true);
       const newComment = await addComment(id, {
         text: commentText.trim(),
-        userId: TEMP_USER_ID,
-        userName: TEMP_USER_NAME,
+        userId: currentUser.id,
+        userName: currentUser.name,
       });
       setRequest(prev => prev ? {
         ...prev,
@@ -219,15 +256,29 @@ const RequestDetail = () => {
               </div>
               <p className="text-foreground leading-relaxed">{request.description}</p>
 
-              {/* Barre de statut */}
+              {/* Bouton postuler — visible uniquement si pas l'auteur */}
+              {!isAuthor && request.status === "ouverte" && !hasApplied && (
+                <Button variant="hero" className="mt-6 gap-2" onClick={handleApply}>
+                  <UserCheck className="h-4 w-4" />
+                  Postuler comme candidat
+                </Button>
+              )}
+              {!isAuthor && request.status === "ouverte" && hasApplied && (
+                <p className="mt-6 flex items-center gap-2 text-sm font-medium text-primary">
+                  <CheckCircle className="h-4 w-4" />
+                  Vous avez postulé à cette demande
+                </p>
+              )}
+
+              {/* Barre de statut — visible uniquement pour l'auteur */}
               <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
-                {request.status === "ouverte" && (
+                {isAuthor && request.status === "ouverte" && (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Users className="h-4 w-4" />
                     En attente — choisissez un candidat dans la liste à droite
                   </p>
                 )}
-                {request.status === "en_cours" && acceptedVolunteer && (
+                {isAuthor && request.status === "en_cours" && acceptedVolunteer && (
                   <>
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                       <UserCheck className="h-4 w-4 text-primary" />
@@ -249,7 +300,9 @@ const RequestDetail = () => {
                   <p className="flex items-center gap-2 text-sm font-medium text-[hsl(var(--success))]">
                     <CircleCheck className="h-4 w-4" />
                     Demande terminée
-                    {acceptedVolunteer && <> — service assuré par <strong className="ml-1">{acceptedVolunteer.name}</strong></>}
+                    {acceptedVolunteer && (
+                      <> — service assuré par <strong className="ml-1">{acceptedVolunteer.name}</strong></>
+                    )}
                   </p>
                 )}
                 {request.status === "annulée" && (
@@ -262,16 +315,16 @@ const RequestDetail = () => {
             </div>
 
             {/* Formulaire d'évaluation */}
-            {showReview && acceptedVolunteer && (
-  <ReviewForm
-    requestId={request.id}
-    requestTitle={request.title}
-    targetUserId={acceptedVolunteer.userId}
-    targetUserName={acceptedVolunteer.name}
-    fromUserId={TEMP_USER_ID}
-    onSubmit={() => setShowReview(false)}
-  />
-)}
+            {showReview && acceptedVolunteer && currentUser && (
+              <ReviewForm
+                requestId={request.id}
+                requestTitle={request.title}
+                targetUserId={acceptedVolunteer.userId}
+                targetUserName={acceptedVolunteer.name}
+                fromUserId={currentUser.id}
+                onSubmit={() => setShowReview(false)}
+              />
+            )}
 
             {/* Commentaires */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
@@ -307,24 +360,32 @@ const RequestDetail = () => {
                   ))
                 )}
               </div>
-              <div className="mt-4 flex gap-2">
-                <Textarea
-                  placeholder="Écrire un commentaire..."
-                  rows={2}
-                  className="flex-1"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                />
-                <Button
-                  variant="default"
-                  size="icon"
-                  className="mt-auto"
-                  onClick={handleSendComment}
-                  disabled={sendingComment || !commentText.trim()}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
+
+              {/* Zone commentaire — uniquement si connecté */}
+              {currentUser ? (
+                <div className="mt-4 flex gap-2">
+                  <Textarea
+                    placeholder="Écrire un commentaire..."
+                    rows={2}
+                    className="flex-1"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                  />
+                  <Button
+                    variant="default"
+                    size="icon"
+                    className="mt-auto"
+                    onClick={handleSendComment}
+                    disabled={sendingComment || !commentText.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="mt-4 text-center text-sm text-muted-foreground">
+                  Connectez-vous pour commenter
+                </p>
+              )}
             </div>
           </div>
 
@@ -350,102 +411,106 @@ const RequestDetail = () => {
                   </div>
                 </div>
               </div>
-              <Button variant="outline" className="mt-4 w-full gap-1.5">
-                <User className="h-4 w-4" />
-                Voir le profil
-              </Button>
+              <Link to={`/profile/${request.author.id}`} className="mt-4 block">
+  <Button variant="outline" className="w-full gap-1.5">
+    <User className="h-4 w-4" />
+    Voir le profil
+  </Button>
+</Link>
             </div>
 
-            {/* Candidats */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
-              <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                <Users className="h-4 w-4" />
-                Candidats ({request.volunteersCount})
-              </h3>
+            {/* Candidats — uniquement visible pour l'auteur */}
+            {isAuthor && (
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  <Users className="h-4 w-4" />
+                  Candidats ({request.volunteersCount})
+                </h3>
 
-              {request.status === "ouverte" && (
-                <div className="space-y-3">
-                  {pendingVolunteers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      Aucun candidat pour l'instant.
-                    </p>
-                  ) : (
-                    pendingVolunteers.map((v) => (
-                      <div key={v.id} className="rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
-                            {v.avatar}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">{v.name}</p>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 fill-accent text-accent" />
-                              <span className="text-xs text-muted-foreground">
-                                {v.rating > 0 ? v.rating : "—"}
-                              </span>
+                {request.status === "ouverte" && (
+                  <div className="space-y-3">
+                    {pendingVolunteers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        Aucun candidat pour l'instant.
+                      </p>
+                    ) : (
+                      pendingVolunteers.map((v) => (
+                        <div key={v.id} className="rounded-lg border border-border p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
+                              {v.avatar}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-foreground">{v.name}</p>
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 fill-accent text-accent" />
+                                <span className="text-xs text-muted-foreground">
+                                  {v.rating > 0 ? v.rating : "—"}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <div className="mt-2 flex gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 gap-1"
+                              onClick={() => handleAcceptCandidate(v)}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              Accepter
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 gap-1"
+                              onClick={() => handleRejectCandidate(v)}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Refuser
+                            </Button>
+                          </div>
                         </div>
-                        <div className="mt-2 flex gap-2">
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-1"
-                            onClick={() => handleAcceptCandidate(v)}
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            Accepter
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 gap-1"
-                            onClick={() => handleRejectCandidate(v)}
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                            Refuser
-                          </Button>
-                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {request.status === "en_cours" && acceptedVolunteer && (
+                  <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                        {acceptedVolunteer.avatar}
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {request.status === "en_cours" && acceptedVolunteer && (
-                <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                      {acceptedVolunteer.avatar}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">{acceptedVolunteer.name}</p>
-                      <p className="text-xs text-primary font-medium">En cours de service</p>
-                    </div>
-                    <UserCheck className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
-              )}
-
-              {request.status === "terminée" && acceptedVolunteer && (
-                <div className="rounded-lg border border-border bg-muted/50 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--success))]/10 text-xs font-bold text-[hsl(var(--success))]">
-                      {acceptedVolunteer.avatar}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">{acceptedVolunteer.name}</p>
-                      <p className="text-xs text-[hsl(var(--success))] font-medium">Service terminé ✓</p>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{acceptedVolunteer.name}</p>
+                        <p className="text-xs text-primary font-medium">En cours de service</p>
+                      </div>
+                      <UserCheck className="h-5 w-5 text-primary" />
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {request.status === "annulée" && (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  Demande annulée
-                </p>
-              )}
-            </div>
+                {request.status === "terminée" && acceptedVolunteer && (
+                  <div className="rounded-lg border border-border bg-muted/50 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--success))]/10 text-xs font-bold text-[hsl(var(--success))]">
+                        {acceptedVolunteer.avatar}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{acceptedVolunteer.name}</p>
+                        <p className="text-xs text-[hsl(var(--success))] font-medium">Service terminé ✓</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {request.status === "annulée" && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Demande annulée
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
