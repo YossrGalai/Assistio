@@ -4,6 +4,7 @@ const ServiceRequest = require('../models/ServiceRequest');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Volunteer = require('../models/Volunteer');
+const Notification = require('../models/Notification');
 const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -37,6 +38,35 @@ function buildFilter(mongoId, legacyId) {
   return conditions.length === 1 ? conditions[0] : { $or: conditions };
 }
 
+// ─── Helper : envoyer une notification temps réel ─────────────────────────────
+async function sendNotification(req, { targetUserId, type, title, message, relatedRequestId, fromUserId }) {
+  try {
+    const notif = new Notification({
+      userId: targetUserId.toString(),
+      type,
+      title,
+      message,
+      relatedRequest: relatedRequestId || undefined,
+      fromUser: fromUserId || undefined,
+    });
+    await notif.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(targetUserId.toString()).emit('new_notification', {
+        id: notif._id.toString(),
+        type,
+        title,
+        message,
+        read: false,
+        createdAt: notif.createdAt.toISOString(),
+      });
+    }
+  } catch (err) {
+    console.error('Erreur envoi notification:', err.message);
+  }
+}
+
 // GET /api/request-detail/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -45,18 +75,12 @@ router.get('/:id', async (req, res) => {
 
     const r = request.toObject();
     const mongoId = r._id.toString();
-
-    // Chercher le champ legacy dans TOUTES les variantes
     const legacyId = r.requestId || r.id || null;
 
-    console.log(`🔍 mongoId: ${mongoId}, legacyId: ${legacyId}`);
-
     const filter = buildFilter(mongoId, legacyId);
-    console.log('🔍 filtre:', JSON.stringify(filter));
 
     const authorId = r.author || r.createdBy;
 
-    // Charger l'auteur
     let authorData = {};
     if (authorId) {
       try {
@@ -66,13 +90,9 @@ router.get('/:id', async (req, res) => {
       } catch {}
     }
 
-    // Charger commentaires et volunteers avec le bon filtre
     const comments = await Comment.find(filter).sort({ createdAt: 1 });
     const volunteers = await Volunteer.find(filter).sort({ createdAt: 1 });
 
-    console.log(`✅ comments: ${comments.length}, volunteers: ${volunteers.length}`);
-
-    // Enrichir chaque volunteer
     const enrichedVolunteers = await Promise.all(
       volunteers.map(async (v) => {
         let userData = {};
@@ -94,7 +114,7 @@ router.get('/:id', async (req, res) => {
 
         return {
           id: v._id.toString(),
-          userId: v.userId,
+          userId: v.userId.toString(),
           name: userData.name || v.userName || 'Utilisateur',
           avatar,
           rating: avgRating,
@@ -103,7 +123,6 @@ router.get('/:id', async (req, res) => {
       })
     );
 
-    // Formater les commentaires
     const formattedComments = comments.map(c => ({
       id: c._id.toString(),
       userId: c.userId,
@@ -156,34 +175,104 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/request-detail/:id/comments
-router.post('/:id/comments', async (req, res) => {
+// POST /api/request-detail/:id/apply
+router.post('/:id/apply', auth, async (req, res) => {
   try {
-    const { text, userId, userName } = req.body;
+    const userId = req.user.id.toString();
+
+    const request = await findRequest(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Demande introuvable' });
+
+    if (STATUS_MAP[request.status] !== 'ouverte' && request.status !== 'ouverte') {
+      return res.status(400).json({ message: "Cette demande n'est plus ouverte" });
+    }
+
+    const mongoId = request._id.toString();
+    const legacyId = request.toObject().requestId || request.toObject().id || null;
+    const filter = buildFilter(mongoId, legacyId);
+
+    // Vérifier si déjà postulé
+    const alreadyApplied = await Volunteer.findOne({ ...filter, userId });
+    if (alreadyApplied) {
+      return res.status(400).json({ message: 'Vous avez déjà postulé' });
+    }
+
+    const user = await User.findById(userId).select('name rating');
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+
+    const avatar = user.name
+      .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+    // Créer le volunteer en DB
+    const newVolunteer = new Volunteer({
+      requestId: mongoId,
+      userId,
+      userName: user.name,
+      rating: user.rating || 0,
+      status: 'pending',
+    });
+    await newVolunteer.save();
+
+    // Notifier le propriétaire de la demande
+    const authorId = request.author?.toString() || request.createdBy?.toString();
+    if (authorId && authorId !== userId) {
+      await sendNotification(req, {
+        targetUserId: authorId,
+        type: 'aide_proposee',
+        title: 'Nouvelle candidature',
+        message: `${user.name} a postulé à votre demande "${request.title}"`,
+        relatedRequestId: request._id,
+        fromUserId: userId,
+      });
+    }
+
+    res.status(201).json({
+      id: newVolunteer._id.toString(),
+      userId,
+      name: user.name,
+      avatar,
+      rating: user.rating || 0,
+      status: 'pending',
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/request-detail/:id/comments
+router.post('/:id/comments', auth, async (req, res) => {
+  try {
+    const { text } = req.body;
     if (!text) return res.status(400).json({ message: 'Le commentaire est requis' });
 
     const request = await findRequest(req.params.id);
     if (!request) return res.status(404).json({ message: 'Demande introuvable' });
 
+    const userId = req.user.id.toString();
+    const user = await User.findById(userId).select('name');
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+
     const mongoId = request._id.toString();
 
     const comment = new Comment({
       requestId: mongoId,
-      userId: userId || 'anonymous',
-      userName: userName || 'Utilisateur',
+      userId,
+      userName: user.name,
       text,
     });
     await comment.save();
 
     await ServiceRequest.findByIdAndUpdate(mongoId, { $inc: { commentsCount: 1 } });
 
+    const avatar = user.name
+      .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
     res.status(201).json({
       id: comment._id.toString(),
-      userId: comment.userId,
-      userName: comment.userName,
-      avatar: comment.userName
-        ? comment.userName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-        : '??',
+      userId,
+      userName: user.name,
+      avatar,
       text: comment.text,
       createdAt: comment.createdAt,
     });
@@ -194,7 +283,7 @@ router.post('/:id/comments', async (req, res) => {
 });
 
 // PUT /api/request-detail/:id/volunteers/:volunteerId/accept
-router.put('/:id/volunteers/:volunteerId/accept', async (req, res) => {
+router.put('/:id/volunteers/:volunteerId/accept', auth, async (req, res) => {
   try {
     const request = await findRequest(req.params.id);
     if (!request) return res.status(404).json({ message: 'Demande introuvable' });
@@ -202,10 +291,13 @@ router.put('/:id/volunteers/:volunteerId/accept', async (req, res) => {
     const mongoId = request._id.toString();
     const legacyId = request.toObject().requestId || request.toObject().id || null;
 
+    const volunteer = await Volunteer.findById(req.params.volunteerId);
+    if (!volunteer) return res.status(404).json({ message: 'Candidat introuvable' });
+
     // Accepter ce volunteer
     await Volunteer.findByIdAndUpdate(req.params.volunteerId, { status: 'accepted' });
 
-    // Refuser tous les autres — chercher par mongoId ET legacyId
+    // Refuser tous les autres
     const rejectFilter = {
       $or: [
         { requestId: mongoId },
@@ -218,6 +310,37 @@ router.put('/:id/volunteers/:volunteerId/accept', async (req, res) => {
     // Mettre le statut en in_progress
     await ServiceRequest.findByIdAndUpdate(mongoId, { status: 'in_progress' });
 
+    // Notifier le volunteer accepté
+    const volunteerId = volunteer.userId?.toString();
+    if (volunteerId) {
+      await sendNotification(req, {
+        targetUserId: volunteerId,
+        type: 'aide_acceptee',
+        title: 'Candidature acceptée !',
+        message: `Votre candidature pour "${request.title}" a été acceptée`,
+        relatedRequestId: request._id,
+        fromUserId: req.user.id,
+      });
+    }
+
+    // Notifier les autres volunteers refusés
+    const rejectedVolunteers = await Volunteer.find({
+      ...rejectFilter,
+      status: 'rejected',
+    });
+    for (const rv of rejectedVolunteers) {
+      if (rv.userId?.toString()) {
+        await sendNotification(req, {
+          targetUserId: rv.userId.toString(),
+          type: 'systeme',
+          title: 'Candidature non retenue',
+          message: `Votre candidature pour "${request.title}" n'a pas été retenue`,
+          relatedRequestId: request._id,
+          fromUserId: req.user.id,
+        });
+      }
+    }
+
     res.json({ message: 'Candidat accepté' });
   } catch (error) {
     console.error(error);
@@ -226,10 +349,35 @@ router.put('/:id/volunteers/:volunteerId/accept', async (req, res) => {
 });
 
 // PUT /api/request-detail/:id/volunteers/:volunteerId/reject
-router.put('/:id/volunteers/:volunteerId/reject', async (req, res) => {
+router.put('/:id/finish', auth, async (req, res) => {
   try {
-    await Volunteer.findByIdAndUpdate(req.params.volunteerId, { status: 'rejected' });
-    res.json({ message: 'Candidat refusé' });
+    const request = await findRequest(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Demande introuvable' });
+
+    await ServiceRequest.findByIdAndUpdate(request._id, { status: 'done' });
+
+    const mongoId = request._id.toString();
+    const acceptedVolunteer = await Volunteer.findOne({ requestId: mongoId, status: 'accepted' });
+    
+    if (acceptedVolunteer?.userId) {
+      const volunteerId = acceptedVolunteer.userId.toString();
+
+      // Incrémenter completedHelps
+      await User.findByIdAndUpdate(volunteerId, {
+        $inc: { completedHelps: 1 }
+      });
+
+      await sendNotification(req, {
+        targetUserId: volunteerId,
+        type: 'demande_terminee',
+        title: 'Mission terminée',
+        message: `La demande "${request.title}" a été marquée comme terminée`,
+        relatedRequestId: request._id,
+        fromUserId: req.user.id,
+      });
+    }
+
+    res.json({ message: 'Demande terminée' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -237,11 +385,27 @@ router.put('/:id/volunteers/:volunteerId/reject', async (req, res) => {
 });
 
 // PUT /api/request-detail/:id/finish
-router.put('/:id/finish', async (req, res) => {
+router.put('/:id/finish', auth, async (req, res) => {
   try {
     const request = await findRequest(req.params.id);
     if (!request) return res.status(404).json({ message: 'Demande introuvable' });
+
     await ServiceRequest.findByIdAndUpdate(request._id, { status: 'done' });
+
+    // Notifier le volunteer accepté que la demande est terminée
+    const mongoId = request._id.toString();
+    const acceptedVolunteer = await Volunteer.findOne({ requestId: mongoId, status: 'accepted' });
+    if (acceptedVolunteer?.userId) {
+      await sendNotification(req, {
+        targetUserId: acceptedVolunteer.userId.toString(),
+        type: 'demande_terminee',
+        title: 'Mission terminée',
+        message: `La demande "${request.title}" a été marquée comme terminée`,
+        relatedRequestId: request._id,
+        fromUserId: req.user.id,
+      });
+    }
+
     res.json({ message: 'Demande terminée' });
   } catch (error) {
     console.error(error);
@@ -250,11 +414,27 @@ router.put('/:id/finish', async (req, res) => {
 });
 
 // PUT /api/request-detail/:id/cancel
-router.put('/:id/cancel', async (req, res) => {
+router.put('/:id/cancel', auth, async (req, res) => {
   try {
     const request = await findRequest(req.params.id);
     if (!request) return res.status(404).json({ message: 'Demande introuvable' });
+
     await ServiceRequest.findByIdAndUpdate(request._id, { status: 'cancelled' });
+
+    // Notifier le volunteer accepté si existant
+    const mongoId = request._id.toString();
+    const acceptedVolunteer = await Volunteer.findOne({ requestId: mongoId, status: 'accepted' });
+    if (acceptedVolunteer?.userId) {
+      await sendNotification(req, {
+        targetUserId: acceptedVolunteer.userId.toString(),
+        type: 'systeme',
+        title: 'Demande annulée',
+        message: `La demande "${request.title}" a été annulée`,
+        relatedRequestId: request._id,
+        fromUserId: req.user.id,
+      });
+    }
+
     res.json({ message: 'Demande annulée' });
   } catch (error) {
     console.error(error);

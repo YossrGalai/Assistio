@@ -86,3 +86,7 @@ export const updateRequest = async (
 export const deleteRequest = async (id: string): Promise<void> => {
   await api.delete(`/requests/${id}`);
 };
+export const getCompletedAsVolunteer = async (userId: string): Promise<ServiceRequest[]> => {
+  const response = await api.get<ServiceRequest[]>(`/requests/completed-as-volunteer/${userId}`);
+  return response.data;
+};

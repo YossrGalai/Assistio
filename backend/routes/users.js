@@ -12,7 +12,7 @@ router.get('/profile', auth, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const completedHelps = await countCompletedRequests(req.user.userId);
-    res.json({ ...formatUser(user), completedHelps });
+    res.json({ ...formatUser(user) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -58,23 +58,19 @@ router.get('/:id', async (req, res) => {
 
 // ─── Helper : compter les demandes terminées ──────────────────────────────────
 async function countCompletedRequests(userId) {
-  const orConditions = [
-    { createdBy: userId.toString() },
-    { author: userId.toString() },
-  ];
+  const Volunteer = require('../models/Volunteer');
+  
+  // Compter les demandes où ce user était volunteer accepté ET terminées
+  const acceptedVolunteers = await Volunteer.find({
+    userId: userId.toString(),
+    status: 'accepted',
+  });
 
-  const mongoose = require('mongoose');
-  if (mongoose.Types.ObjectId.isValid(userId)) {
-    const objectId = new mongoose.Types.ObjectId(userId.toString());
-    orConditions.push({ author: objectId });
-    orConditions.push({ createdBy: objectId });
-  }
+  const requestIds = acceptedVolunteers.map(v => v.requestId);
 
   const count = await ServiceRequest.countDocuments({
-    $and: [
-      { $or: orConditions },
-      { status: { $in: ['done', 'terminée'] } },
-    ]
+    _id: { $in: requestIds },
+    status: { $in: ['done', 'terminée'] },
   });
 
   return count;

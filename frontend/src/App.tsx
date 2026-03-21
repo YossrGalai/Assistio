@@ -33,7 +33,9 @@ const App = () => (
           
           <Route path="/request/:id" element={<RequestDetail />} />
           <Route path="/requests" element={<Requests />} />  
-          <Route path="/notifications" element={<Notifications />} />        
+          <Route path="/notifications" element={<Notifications />} /> 
+          <Route path="/profile/:id" element={<Profile />} />
+<Route path="/profile" element={<Profile />} />         
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

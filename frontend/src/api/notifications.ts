@@ -1,6 +1,3 @@
-/*travail avec authentification   
-
-
 import api from './api';
 
 export interface AppNotification {
@@ -44,9 +41,9 @@ export const deleteNotification = async (id: string): Promise<{ message: string 
   const response = await api.delete<{ message: string }>(`/notifications/${id}`);
   return response.data;
 };
-*/
 
-import api from './api';
+
+/*import api from './api';
 
 export interface AppNotification {
   id: string;
@@ -95,3 +92,5 @@ export const deleteNotification = async (id: string): Promise<{ message: string 
   const response = await api.delete<{ message: string }>(`/notifications/${id}`);
   return response.data;
 };
+*/
+
