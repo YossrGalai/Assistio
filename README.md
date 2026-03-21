@@ -22,7 +22,7 @@ L’objectif du projet est de structurer et digitaliser les échanges informels 
 ## Technologies utilisées
 
 ### Frontend
-- React.js  
+- React  
 - TypeScript  
 - Vite  
 - React Router  
