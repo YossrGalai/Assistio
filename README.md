@@ -60,24 +60,24 @@ Cette architecture garantit modularité, maintenabilité et évolutivité du sys
 ## Installation et exécution
 
 ### 1. Cloner le projet
-```bash
+
 git clone https://github.com/ton-username/assistio.git
 cd assistio
-2. Installer les dépendances
+### 2. Installer les dépendances
 Backend
 cd backend
 npm install
 Frontend
 cd frontend
 npm install
-3. Configuration des variables d’environnement
+### 3. Configuration des variables d’environnement
 
 Créer un fichier .env dans le dossier backend :
 
 MONGO_URI=your_mongodb_uri
 JWT_SECRET=your_secret_key
 CLOUDINARY_URL=your_cloudinary_config
-4. Lancer l’application
+### 4. Lancer l’application
 Backend
 npm run dev
 Frontend
@@ -103,7 +103,8 @@ Faciliter l’accès aux services de proximité
 Améliorer la mise en relation entre utilisateurs
 Garantir un environnement fiable et sécurisé
 Encourager la solidarité locale
-Équipe
+
+### Équipe
 Emna Kalel
 Yossr Galai
 Maha Tlili
