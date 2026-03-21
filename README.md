@@ -64,48 +64,48 @@ Cette architecture garantit modularité, maintenabilité et évolutivité du sys
 git clone https://github.com/ton-username/assistio.git
 cd assistio
 ### 2. Installer les dépendances
-Backend
-cd backend
-npm install
-Frontend
-cd frontend
-npm install
+Backend  
+cd backend  
+npm install  
+Frontend  
+cd frontend  
+npm install  
 ### 3. Configuration des variables d’environnement
 
-Créer un fichier .env dans le dossier backend :
+Créer un fichier .env dans le dossier backend :  
 
-MONGO_URI=your_mongodb_uri
-JWT_SECRET=your_secret_key
-CLOUDINARY_URL=your_cloudinary_config
-### 4. Lancer l’application
-Backend
-npm run dev
-Frontend
-npm run dev
-Aperçu de l’application
-Page d’accueil
-Carte interactive
-Tableau de bord utilisateur
-Tests
-Tests des API avec Postman
-Tests fonctionnels manuels
-Validation progressive par sprint
-Méthodologie
+MONGO_URI=your_mongodb_uri  
+JWT_SECRET=your_secret_key  
+CLOUDINARY_URL=your_cloudinary_config  
+### 4. Lancer l’application  
+Backend  
+npm run dev  
+Frontend  
+npm run dev  
+Aperçu de l’application  
+Page d’accueil  
+Carte interactive   
+Tableau de bord utilisateur  
+Tests  
+Tests des API avec Postman  
+Tests fonctionnels manuels  
+Validation progressive par sprint  
+Méthodologie  
 
-Le projet a été réalisé selon une approche Agile basée sur Scrum :
+Le projet a été réalisé selon une approche Agile basée sur Scrum :  
 
-Organisation du travail en sprints
-Gestion des fonctionnalités via un backlog
-Développement itératif
-Amélioration continue
-Objectifs
-Faciliter l’accès aux services de proximité
-Améliorer la mise en relation entre utilisateurs
-Garantir un environnement fiable et sécurisé
-Encourager la solidarité locale
+Organisation du travail en sprints  
+Gestion des fonctionnalités via un backlog  
+Développement itératif  
+Amélioration continue  
+Objectifs  
+Faciliter l’accès aux services de proximité   
+Améliorer la mise en relation entre utilisateurs  
+Garantir un environnement fiable et sécurisé  
+Encourager la solidarité locale  
 
 ### Équipe
-Emna Kalel
+Emna Kallel  
 Yossr Galai
 Maha Tlili
 Licence
