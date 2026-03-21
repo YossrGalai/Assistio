@@ -10,6 +10,16 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, location } = req.body;
+    const missingFields = [];
+    if (!name || !name.trim()) missingFields.push("name");
+    if (!email || !email.trim()) missingFields.push("email");
+    if (!password || !password.trim()) missingFields.push("password");
+    if (missingFields.length) {
+      return res.status(400).json({
+        message: "Missing required fields",
+        fields: missingFields
+      });
+    }
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -58,6 +68,15 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const missingFields = [];
+    if (!email || !email.trim()) missingFields.push("email");
+    if (!password || !password.trim()) missingFields.push("password");
+    if (missingFields.length) {
+      return res.status(400).json({
+        message: "Missing required fields",
+        fields: missingFields
+      });
+    }
 
     // Find user
     const user = await User.findOne({ email });
