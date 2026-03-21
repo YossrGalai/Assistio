@@ -1,25 +1,36 @@
-/* src/pages/Auth.css */
+﻿/* src/pages/Auth.css */
 .auth-container {
+  --auth-black: #0b0f16;
+  --auth-ink: #111827;
+  --auth-blue: #2563eb;
+  --auth-blue-soft: #1e40af;
+  --auth-gray: #94a3b8;
+  --auth-gray-soft: #1f2937;
+  --auth-gray-deep: #0f172a;
+  --auth-white: #f8fafc;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #fef3c7 0%, #f8fafc 45%, #e2e8f0 100%);
+  background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.2) 0%, transparent 45%),
+    radial-gradient(circle at bottom right, rgba(148, 163, 184, 0.18) 0%, transparent 50%),
+    linear-gradient(160deg, #e2e8f0 0%, #f1f5f9 45%, #f8fafc 100%);
   font-family: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  padding: 40px 20px;
+  padding: 24px;
 }
 
 .auth-frame {
-  width: min(1100px, 100%);
-  background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+  width: min(1320px, 100%);
+  min-height: 88vh;
+  background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
   border-radius: 28px;
-  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 28px 50px rgba(15, 23, 42, 0.14);
   display: grid;
-  grid-template-columns: minmax(320px, 420px) 1fr;
+  grid-template-columns: minmax(360px, 480px) 1fr;
   gap: 40px;
-  padding: 36px;
+  padding: 44px;
   position: relative;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   overflow: hidden;
 }
 
@@ -35,12 +46,12 @@
   padding: 6px 16px;
   border-radius: 999px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   font-weight: 700;
   color: #0f172a;
   letter-spacing: 0.3px;
   margin-bottom: 28px;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
 }
 
 .auth-left h2 {
@@ -71,7 +82,7 @@
   padding: 14px 16px;
   margin-top: 8px;
   border-radius: 999px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.4);
   background: #ffffff;
   color: #0f172a;
   font-size: 0.98rem;
@@ -81,8 +92,20 @@
 
 .auth-form input:focus {
   outline: none;
-  border-color: #fbbf24;
-  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.25);
+  border-color: rgba(37, 99, 235, 0.9);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
+}
+
+.auth-form input.auth-input.error {
+  border-color: rgba(220, 38, 38, 0.9);
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+}
+
+.auth-error {
+  margin-top: 6px;
+  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .auth-primary {
@@ -90,19 +113,40 @@
   width: 100%;
   padding: 14px 18px;
   border: none;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: #1f2937;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: var(--auth-white);
   border-radius: 999px;
   cursor: pointer;
   font-weight: 700;
   font-size: 1rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 10px 20px rgba(251, 191, 36, 0.35);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.35);
 }
 
 .auth-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 30px rgba(251, 191, 36, 0.45);
+  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.45);
+}
+
+.auth-secondary {
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  color: #1e3a8a;
+  font-weight: 600;
+  font-size: 0.96rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.1);
+}
+
+.auth-secondary:hover {
+  transform: translateY(-2px);
+  background: #e0e7ff;
+  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.18);
 }
 
 .auth-switch {
@@ -119,7 +163,7 @@
 }
 
 .auth-switch span:hover {
-  color: #f59e0b;
+  color: #60a5fa;
 }
 
 .auth-right {
@@ -131,38 +175,43 @@
 .auth-hero {
   width: 100%;
   height: 100%;
-  min-height: 420px;
-  background: radial-gradient(circle at top right, rgba(251, 191, 36, 0.35), transparent 45%),
-    linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: 560px;
+  background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.22), transparent 45%),
+    linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
   border-radius: 26px;
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding: 28px;
 }
 
 .hero-close {
   position: absolute;
-  top: 16px;
-  right: 18px;
-  width: 36px;
-  height: 36px;
+  top: 34px;
+  right: 34px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.9);
   display: grid;
   place-items: center;
   font-weight: 700;
   color: #0f172a;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.16);
   text-transform: uppercase;
+  z-index: 2;
 }
 
 .hero-image {
   position: absolute;
-  inset: 60px 60px 40px 60px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #94a3b8 0%, #cbd5f5 50%, #f8fafc 100%);
-  box-shadow: 0 24px 40px rgba(15, 23, 42, 0.2);
+  inset: 24px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.18) 0%, rgba(15, 23, 42, 0.05) 55%, rgba(255, 255, 255, 0.2) 100%),
+    url("/images/auth/meeting.jpg");
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 24px 40px rgba(15, 23, 42, 0.18);
 }
 
 .hero-card {
@@ -170,7 +219,7 @@
   background: #ffffff;
   border-radius: 16px;
   padding: 12px 16px;
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.16);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -204,14 +253,14 @@
   width: 12px;
   height: 12px;
   border-radius: 999px;
-  background: #fbbf24;
+  background: #2563eb;
 }
 
 .hero-calendar {
   position: absolute;
   bottom: 120px;
   right: 36px;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(15, 23, 42, 0.75);
   color: #f8fafc;
   padding: 16px 18px;
   border-radius: 16px;
@@ -239,8 +288,8 @@
 }
 
 .hero-calendar-dates .active {
-  background: rgba(251, 191, 36, 0.9);
-  color: #0f172a;
+  background: rgba(37, 99, 235, 0.95);
+  color: #ffffff;
   font-weight: 700;
 }
 
@@ -253,7 +302,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fbbf24, #f97316);
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
   border: 2px solid #ffffff;
 }
 

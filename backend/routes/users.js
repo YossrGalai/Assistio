@@ -42,8 +42,8 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
-// GET /api/users/:id (public)
-router.get('/:id', async (req, res) => {
+// GET /api/users/:id (public) - only match valid Mongo ObjectId
+router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
