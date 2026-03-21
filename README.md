@@ -61,7 +61,7 @@ Cette architecture garantit modularité, maintenabilité et évolutivité du sys
 
 ### 1. Cloner le projet
 
-git clone https://github.com/ton-username/assistio.git
+git clone https://github.com/YossrGalai/Assistio.git   
 cd assistio
 ### 2. Installer les dépendances
 Backend  
@@ -106,8 +106,8 @@ Encourager la solidarité locale
 
 ### Équipe
 Emna Kallel  
-Yossr Galai
-Maha Tlili
+Yossr Galai  
+Maha Tlili  
 Licence
 
 Projet réalisé dans le cadre académique – année universitaire 2025-2026
