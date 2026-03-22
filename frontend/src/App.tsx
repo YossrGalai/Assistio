@@ -14,6 +14,7 @@ import "./App.css";
 import Requests from "./pages/Requests";
 import RequestDetail from "./pages/RequestDetail";
 import Notifications from "./pages/Notifications";
+import EmailVerified from "./pages/EmailVerified";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/create" element={<CreateRequest />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/email-verified" element={<EmailVerified />} />
           
           <Route path="/request/:id" element={<RequestDetail />} />
           <Route path="/requests" element={<Requests />} />  

@@ -69,6 +69,21 @@
   line-height: 1.6;
 }
 
+.auth-status {
+  margin: 0 0 8px;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.auth-status.success {
+  color: #1f7a4b;
+}
+
+.auth-status.error {
+  color: #c0392b;
+}
+
 .auth-form label {
   display: block;
   margin-top: 18px;

@@ -46,9 +46,7 @@ app.use(express.json());
 // Rendre io accessible dans les routes
 app.set('io', io);
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connecté'))
-  .catch((err) => console.error('❌ Erreur MongoDB :', err.message));
+
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/requests', require('./routes/requests'));
