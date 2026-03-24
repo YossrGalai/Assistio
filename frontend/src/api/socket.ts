@@ -1,8 +1,17 @@
 import { io, Socket } from 'socket.io-client';
 
-const TEMP_USER_ID = '69b9adf10f9a5013de84ad64';
-
 let socket: Socket | null = null;
+
+const getUserIdFromToken = (): string | null => {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.id || payload._id || payload.userId || null;
+  } catch {
+    return null;
+  }
+};
 
 export const getSocket = (): Socket => {
   if (!socket) {
@@ -12,8 +21,10 @@ export const getSocket = (): Socket => {
 
     socket.on('connect', () => {
       console.log('🔌 Socket connecté');
-      // S'enregistrer avec le userId
-      socket!.emit('register', TEMP_USER_ID);
+      const userId = getUserIdFromToken();
+      if (userId) {
+        socket!.emit('register', userId);
+      }
     });
 
     socket.on('disconnect', () => {
@@ -29,3 +40,4 @@ export const disconnectSocket = () => {
     socket = null;
   }
 };
+

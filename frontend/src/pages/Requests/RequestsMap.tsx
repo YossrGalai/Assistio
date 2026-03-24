@@ -41,7 +41,7 @@ export default function RequestsMap({
     const matchesVille = ville ? req.city?.toLowerCase() === ville.toLowerCase() : true;
     const matchesGouv = gouvernorat ? req.gouvernorat?.toLowerCase() === gouvernorat.toLowerCase() : true;
     const matchesCat = categorie ? req.category?.toLowerCase() === categorie.toLowerCase() : true;
-    const hasCoords = (req.latitude ?? (req as any).lat) && (req.longitude ?? (req as any).lng);
+    const hasCoords = req.latitude != null && req.longitude != null;
 
     return matchesSearch && matchesVille && matchesGouv && matchesCat && hasCoords;
   });

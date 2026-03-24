@@ -1,8 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { Readable } = require('stream');
 const ServiceRequest = require('../models/ServiceRequest');
 const User = require('../models/User');
 const auth = require('../middlewares/authMiddleware');
+const { uploadSingleImage } = require('../middlewares/upload');
+const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -65,7 +68,7 @@ async function normalizeRequestWithUser(doc, index = 0) {
         .select('name city profileImageUrl ratings');
       if (user) authorData = user.toObject();
     } catch {
-      // ID invalide → on continue avec données vides
+      
     }
   }
 
@@ -111,7 +114,7 @@ async function normalizeRequestWithUser(doc, index = 0) {
   };
 }
 
-// 1. GET /api/requests
+//  GET /api/requests
 router.get('/', async (req, res) => {
   try {
     const { status, category, city, type, urgent } = req.query;
@@ -135,7 +138,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 2. GET /api/requests/user/:userId
+//  GET /api/requests/user/:userId
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -153,7 +156,7 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// 3. GET /api/requests/:id
+//  GET /api/requests/:id
 router.get('/:id', async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
@@ -166,12 +169,26 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 4. POST /api/requests
-router.post('/', auth, async (req, res) => {
+//  POST /api/requests
+router.post('/', auth, uploadSingleImage, async (req, res) => {
   try {
-    const { title, description, category, city, gouvernorat, budget, type, urgency, image } = req.body;
+    const { title, description, category, city, gouvernorat, budget, type, urgency, image, latitude, longitude } = req.body;
     if (!title || !description || !category) {
       return res.status(400).json({ message: 'Titre, description et catégorie sont requis' });
+    }
+    let imageUrl = image || '';
+    if (req.file && req.file.buffer) {
+      const uploaded = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'assistio' },
+          (error, result) => {
+            if (error) return reject(error);
+            return resolve(result);
+          }
+        );
+        Readable.from(req.file.buffer).pipe(stream);
+      });
+      imageUrl = uploaded.secure_url || imageUrl;
     }
     const request = new ServiceRequest({
       title, description, category,
@@ -182,10 +199,12 @@ router.post('/', auth, async (req, res) => {
       type: type || 'service',
       urgency: urgency || 'low',
       urgent: urgency === 'high',
-      image: image || '',
+      image: imageUrl,
       author: req.user.userId,
       createdBy: req.user.userId,
       status: 'pending',
+      latitude: latitude ? Number(latitude) : null,
+      longitude: longitude ? Number(longitude) : null,
     });
     await request.save();
     const normalized = await normalizeRequestWithUser(request);
@@ -196,7 +215,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// 5. PUT /api/requests/:id
+//  PUT /api/requests/:id
 router.put('/:id', auth, async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
@@ -216,7 +235,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// 6. DELETE /api/requests/:id
+//  DELETE /api/requests/:id
 router.delete('/:id', auth, async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
@@ -225,6 +244,70 @@ router.delete('/:id', auth, async (req, res) => {
     if (ownerId !== req.user.userId) return res.status(403).json({ message: 'Not authorized' });
     await request.deleteOne();
     res.json({ message: 'Request deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/requests/completed-as-volunteer/:userId
+router.get('/completed-as-volunteer/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const Volunteer = require('../models/Volunteer');
+
+    // Trouver toutes les demandes où ce user est volunteer accepté
+    const acceptedVolunteers = await Volunteer.find({
+      userId: userId,
+      status: 'accepted',
+    });
+
+    const requestIds = acceptedVolunteers.map(v => v.requestId);
+
+    // Parmi ces demandes, garder celles qui sont terminées
+    const completedRequests = await ServiceRequest.find({
+      _id: { $in: requestIds },
+      status: { $in: ['done', 'terminée'] },
+    }).populate('author', 'name city profileImageUrl ratings');
+
+    const formatted = completedRequests.map(r => {
+      const author = r.author || {};
+      const ratings = author.ratings || [];
+      const avgRating = ratings.length
+        ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+        : 0;
+      const avatar = author.name
+        ? author.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+        : '??';
+
+      return {
+        id: r._id.toString(),
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        location: r.city || r.location || r.gouvernorat || '',
+        city: r.city || '',
+        gouvernorat: r.gouvernorat || '',
+        status: 'terminée',
+        budget: r.budget || 'À négocier',
+        type: r.type || 'service',
+        urgent: r.urgent || false,
+        urgency: r.urgency || 'low',
+        image: r.image || '',
+        volunteersCount: r.volunteersCount || 0,
+        commentsCount: r.commentsCount || 0,
+        createdAt: r.createdAt,
+        author: {
+          id: author._id?.toString() || '',
+          name: author.name || 'Utilisateur',
+          avatar,
+          rating: avgRating,
+          city: author.city || '',
+        },
+      };
+    });
+
+    res.json(formatted);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

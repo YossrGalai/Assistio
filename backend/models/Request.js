@@ -53,6 +53,10 @@ const requestSchema = new mongoose.Schema(
 
     gouvernorat: String,
 
+    image: {
+      type: String,
+    },
+
     status: {
       type: String,
       enum: ["pending", "in_progress", "done"],

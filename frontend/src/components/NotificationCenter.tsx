@@ -61,7 +61,6 @@ const NotificationCenter = () => {
         setLoading(false);
       }
     };
-
     fetchNotifications();
   }, []);
 
@@ -125,11 +124,7 @@ const NotificationCenter = () => {
           !notif.read ? "bg-primary/5 border-primary/20" : "bg-card"
         }`}
       >
-        <div
-          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted ${
-            iconColorMap[notif.type] ?? "text-muted-foreground"
-          }`}
-        >
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted ${iconColorMap[notif.type] ?? "text-muted-foreground"}`}>
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -181,7 +176,6 @@ const NotificationCenter = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -217,14 +211,12 @@ const NotificationCenter = () => {
         </div>
       </div>
 
-      {/* Erreur */}
       {error && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Tabs */}
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">Toutes ({notifications.length})</TabsTrigger>
@@ -262,3 +254,4 @@ const NotificationCenter = () => {
 };
 
 export default NotificationCenter;
+

@@ -1,29 +1,25 @@
 import type { Request, CreateRequestDTO } from "../types/request";
+import api from "../api/api";
 
-export const createRequest = async (
-  data: CreateRequestDTO
-): Promise<Request> => {
-  const response = await fetch("http://localhost:5000/api/requests", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+export const createRequest = async (data: CreateRequestDTO): Promise<Request> => {
+  const formData = new FormData();
+  formData.append("title", data.title);
+  formData.append("description", data.description);
+  formData.append("category", data.category);
+  formData.append("urgency", data.urgency);
+  formData.append("latitude", String(data.latitude ?? ""));
+  formData.append("longitude", String(data.longitude ?? ""));
+  if (data.city) formData.append("city", data.city);
+  if (data.gouvernorat) formData.append("gouvernorat", data.gouvernorat);
+  if (data.imageFile) formData.append("image", data.imageFile);
+
+  const response = await api.post<Request>("/requests", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
-
-  if (!response.ok) {
-    throw new Error("Erreur lors de la création");
-  }
-
-  return response.json();
+  return response.data;
 };
 
 export const getRequests = async (): Promise<Request[]> => {
-  const response = await fetch("http://localhost:5000/api/requests");
-
-  if (!response.ok) {
-    throw new Error("Erreur lors de la récupération des demandes");
-  }
-
-  return response.json();
+  const response = await api.get<Request[]>("/requests");
+  return response.data;
 };

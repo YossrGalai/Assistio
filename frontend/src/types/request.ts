@@ -11,6 +11,15 @@ export type Request = {
   status?: "pending" | "in_progress" | "done";
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string;
+  author?: {
+    id: string;
+    name: string;
+    rating: number;
+    city: string;
+    profileImageUrl: string;
+  };
+  image?: string;
 };
 
 export type CreateRequestDTO = {
@@ -22,4 +31,6 @@ export type CreateRequestDTO = {
   longitude: number;
   city?: string;
   gouvernorat?: string;
+  image?: string;
+  imageFile?: File | null;
 };

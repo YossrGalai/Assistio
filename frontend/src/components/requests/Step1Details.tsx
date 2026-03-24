@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react";
 import type { CreateRequestDTO } from "../../types/request";
 
 const CATEGORIES = [
@@ -78,6 +79,17 @@ const labelStyle: React.CSSProperties = {
 
 export default function Step1Details({ formData, setFormData, nextStep }: Props) {
   const isValid = formData.title && formData.description && formData.category && formData.urgency;
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (!formData.imageFile) {
+      setPreviewUrl("");
+      return;
+    }
+    const url = URL.createObjectURL(formData.imageFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [formData.imageFile]);
 
   const focusStyle = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     e.target.style.borderColor = "#f59e0b";
@@ -86,6 +98,11 @@ export default function Step1Details({ formData, setFormData, nextStep }: Props)
   const blurStyle = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     e.target.style.borderColor = "rgba(255,255,255,0.12)";
     e.target.style.background = "rgba(255,255,255,0.06)";
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFormData((prev) => ({ ...prev, imageFile: file }));
   };
 
   return (
@@ -143,6 +160,36 @@ export default function Step1Details({ formData, setFormData, nextStep }: Props)
             onBlur={blurStyle as any}
             style={{ ...inputStyle, resize: "none", lineHeight: 1.6 }}
           />
+        </div>
+
+        {/* Photo */}
+        <div>
+          <label style={labelStyle}>Photo (optionnelle)</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              style={inputStyle}
+            />
+
+            {previewUrl && (
+              <div style={{
+                borderRadius: "12px",
+                overflow: "hidden",
+                border: "1px solid rgba(255,255,255,0.1)",
+                width: "100%",
+                maxWidth: "420px",
+              }}>
+                <img
+                  src={previewUrl}
+                  alt="Aperçu"
+                  style={{ display: "block", width: "100%", height: "auto" }}
+                />
+              </div>
+            )}
+
+          </div>
         </div>
 
         {/* Catégorie — chips */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Button } from "../components/ui/button";
@@ -10,73 +11,95 @@ import {
   User, Lock, Bell, Shield, Save,
 } from "lucide-react";
 import RequestCard from "../components/RequestCard";
-import {  type ServiceRequest } from "../api/requests";
-import {  type Review } from "../api/reviews";
-import {  type User as UserType } from "../api/auth";
-
-
+import { getRequestsByUser, getCompletedAsVolunteer, type ServiceRequest } from "../api/requests";
+import { getUserReviews, type Review } from "../api/reviews";
+import { getProfile, updateProfile, getUserById, type User as UserType } from "../api/auth";
 
 const Profile = () => {
+  const { id } = useParams<{ id?: string }>();
+
   const [editingProfile, setEditingProfile] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [requests] = useState<ServiceRequest[]>([]);
-  const [reviews] = useState<Review[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [completedAsVolunteer, setCompletedAsVolunteer] = useState<ServiceRequest[]>([]);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formCity, setFormCity] = useState("");
   const [formBio, setFormBio] = useState("");
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const token = localStorage.getItem("token"); 
-      if (!token) return;
-      const res = await fetch("http://localhost:5000/api/users/profile", {
-        headers: {
-          Authorization: "Bearer " + token, 
-        }, });
-      const user = await res.json();
-       console.log("Utilisateur :", user);
-      setCurrentUser(user); // set logged user
 
-      // fill the form
-      setFormName(user.name || "");
-      setFormPhone(user.phone || "");
-      setFormEmail(user.email || "");
-      setFormCity(user.city || "");
-      setFormBio(user.bio || "");
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        let user: UserType;
+        let own = false;
 
-      // Optional: later, you can fetch requests/reviews using user._id
-    } catch (error) {
-      console.error("Erreur :", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (id) {
+          // Profil public — charger par id
+          user = await getUserById(id);
+          // Vérifier si c'est quand même son propre profil
+          try {
+            const me = await getProfile();
+            own = me.id === id;
+          } catch {
+            own = false;
+          }
+        } else {
+          // Propre profil
+          user = await getProfile();
+          own = true;
+        }
 
-  fetchData();
-}, []);
+        setCurrentUser(user);
+        setIsOwnProfile(own);
+
+        if (own) {
+          setFormName(user.name || "");
+          setFormPhone(user.phone || "");
+          setFormEmail(user.email || "");
+          setFormCity(user.city || "");
+          setFormBio(user.bio || "");
+        }
+
+        const [userRequests, userReviews, volunteeredRequests] = await Promise.all([
+          getRequestsByUser(user.id),
+          getUserReviews(user.id),
+          getCompletedAsVolunteer(user.id),
+        ]);
+        setRequests(userRequests);
+        setReviews(userReviews);
+        setCompletedAsVolunteer(volunteeredRequests);
+      } catch (error) {
+        console.error("Erreur :", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
 
   const handleSaveProfile = async () => {
     try {
       setSaving(true);
-      console.log("Sauvegarde :", { formName, formPhone, formCity, formBio });
-      setCurrentUser((prev) =>
-        prev ? { ...prev, name: formName, phone: formPhone, city: formCity, bio: formBio } : prev
-      );
+      const updated = await updateProfile({
+        name: formName,
+        phone: formPhone,
+        city: formCity,
+        bio: formBio,
+      });
+      setCurrentUser(updated);
       setEditingProfile(false);
+    } catch (error) {
+      console.error("Erreur mise à jour profil :", error);
     } finally {
       setSaving(false);
     }
   };
-
-  // Accepter les deux formats de statut (DB anglais + frontend français)
-  const completedRequests = requests.filter(
-    (r) => r.status === "terminée" || (r.status as string) === "done"
-  );
 
   if (loading) {
     return (
@@ -174,16 +197,20 @@ useEffect(() => {
         {/* Tabs */}
         <Tabs defaultValue="requests" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="requests">Mes demandes</TabsTrigger>
+            <TabsTrigger value="requests">
+              {isOwnProfile ? "Mes demandes" : "Demandes"}
+            </TabsTrigger>
             <TabsTrigger value="history">Accomplissements</TabsTrigger>
             <TabsTrigger value="reviews" className="gap-1.5">
               <Star className="h-4 w-4" />
               Avis
             </TabsTrigger>
-            <TabsTrigger value="settings">Paramètres</TabsTrigger>
+            {isOwnProfile && (
+              <TabsTrigger value="settings">Paramètres</TabsTrigger>
+            )}
           </TabsList>
 
-          {/* Mes demandes */}
+          {/* Demandes */}
           <TabsContent value="requests">
             {requests.length === 0 ? (
               <div className="rounded-xl border border-border bg-card py-12 text-center">
@@ -201,16 +228,16 @@ useEffect(() => {
 
           {/* Accomplissements */}
           <TabsContent value="history">
-            {completedRequests.length === 0 ? (
+            {completedAsVolunteer.length === 0 ? (
               <div className="rounded-xl border border-border bg-card py-12 text-center">
                 <Star className="mx-auto h-10 w-10 text-muted-foreground/40" />
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Aucune mission terminée pour l'instant.
+                  Aucune mission réalisée pour l'instant.
                 </p>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {completedRequests.map((req, i) => (
+                {completedAsVolunteer.map((req, i) => (
                   <RequestCard key={req.id} request={req} index={i} />
                 ))}
               </div>
@@ -277,155 +304,131 @@ useEffect(() => {
             </div>
           </TabsContent>
 
-          {/* Paramètres */}
-          <TabsContent value="settings">
-            <div className="space-y-6">
-
-              {/* Informations personnelles */}
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
-                <div className="mb-6 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-bold text-foreground">
-                      Informations personnelles
-                    </h3>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingProfile(!editingProfile)}
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    {editingProfile ? "Annuler" : "Modifier"}
-                  </Button>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                      Nom complet
-                    </label>
-                    <Input
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      disabled={!editingProfile}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                      Téléphone
-                    </label>
-                    <Input
-                      value={formPhone}
-                      onChange={(e) => setFormPhone(e.target.value)}
-                      disabled={!editingProfile}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                      Email
-                    </label>
-                    <Input value={formEmail} disabled className="opacity-60" />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                      Ville
-                    </label>
-                    <Input
-                      value={formCity}
-                      onChange={(e) => setFormCity(e.target.value)}
-                      disabled={!editingProfile}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                      Bio
-                    </label>
-                    <Input
-                      value={formBio}
-                      onChange={(e) => setFormBio(e.target.value)}
-                      disabled={!editingProfile}
-                      placeholder="Parlez de vous..."
-                    />
-                  </div>
-                </div>
-                {editingProfile && (
-                  <Button
-                    variant="hero"
-                    className="mt-4 gap-1.5"
-                    onClick={handleSaveProfile}
-                    disabled={saving}
-                  >
-                    <Save className="h-4 w-4" />
-                    {saving ? "Enregistrement..." : "Enregistrer"}
-                  </Button>
-                )}
-              </div>
-
-              {/* Sécurité */}
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
-                <div className="mb-6 flex items-center gap-2">
-                  <Lock className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-bold text-foreground">Sécurité</h3>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-xl border border-border p-4">
-                    <div>
-                      <p className="font-medium text-foreground">Mot de passe</p>
-                      <p className="text-sm text-muted-foreground">
-                        Modifiez votre mot de passe régulièrement
-                      </p>
+          {/* Paramètres — uniquement propre profil */}
+          {isOwnProfile && (
+            <TabsContent value="settings">
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-bold text-foreground">
+                        Informations personnelles
+                      </h3>
                     </div>
-                    <Button variant="outline" size="sm">Changer</Button>
-                  </div>
-                 
-                </div>
-              </div>
-
-              {/* Notifications */}
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
-                <div className="mb-6 flex items-center gap-2">
-                  <Bell className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-bold text-foreground">Notifications</h3>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    { label: "Nouvelles demandes", desc: "Recevoir une notification pour les nouvelles demandes dans vos catégories", enabled: true },
-                    { label: "Messages", desc: "Notifications pour les nouveaux messages", enabled: true },
-                    { label: "Offres reçues", desc: "Recevoir une alerte quand quelqu'un répond à votre demande", enabled: false },
-                    
-                  ].map((notif) => (
-                    <div
-                      key={notif.label}
-                      className="flex items-center justify-between rounded-xl border border-border p-4"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingProfile(!editingProfile)}
                     >
-                      <div>
-                        <p className="font-medium text-foreground">{notif.label}</p>
-                        <p className="text-sm text-muted-foreground">{notif.desc}</p>
-                      </div>
-                      <Badge variant={notif.enabled ? "success" : "secondary"}>
-                        {notif.enabled ? "Activé" : "Désactivé"}
-                      </Badge>
+                      <Edit className="h-4 w-4 mr-1" />
+                      {editingProfile ? "Annuler" : "Modifier"}
+                    </Button>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                        Nom complet
+                      </label>
+                      <Input value={formName} onChange={(e) => setFormName(e.target.value)} disabled={!editingProfile} />
                     </div>
-                  ))}
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                        Téléphone
+                      </label>
+                      <Input value={formPhone} onChange={(e) => setFormPhone(e.target.value)} disabled={!editingProfile} />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                        Email
+                      </label>
+                      <Input value={formEmail} disabled className="opacity-60" />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                        Ville
+                      </label>
+                      <Input value={formCity} onChange={(e) => setFormCity(e.target.value)} disabled={!editingProfile} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                        Bio
+                      </label>
+                      <Input
+                        value={formBio}
+                        onChange={(e) => setFormBio(e.target.value)}
+                        disabled={!editingProfile}
+                        placeholder="Parlez de vous..."
+                      />
+                    </div>
+                  </div>
+                  {editingProfile && (
+                    <Button variant="hero" className="mt-4 gap-1.5" onClick={handleSaveProfile} disabled={saving}>
+                      <Save className="h-4 w-4" />
+                      {saving ? "Enregistrement..." : "Enregistrer"}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Sécurité */}
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <div className="mb-6 flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-bold text-foreground">Sécurité</h3>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between rounded-xl border border-border p-4">
+                      <div>
+                        <p className="font-medium text-foreground">Mot de passe</p>
+                        <p className="text-sm text-muted-foreground">
+                          Modifiez votre mot de passe régulièrement
+                        </p>
+                      </div>
+                      <Button variant="outline" size="sm">Changer</Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notifications */}
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <div className="mb-6 flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-bold text-foreground">Notifications</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { label: "Offres reçues", desc: "Recevoir une alerte quand quelqu'un répond à votre demande", enabled: true },
+                      { label: "Réponses aux candidatures", desc: "Recevoir une alerte quand le demandeur accepte ou refuse votre candidature", enabled: true },
+                    ].map((notif) => (
+                      <div key={notif.label} className="flex items-center justify-between rounded-xl border border-border p-4">
+                        <div>
+                          <p className="font-medium text-foreground">{notif.label}</p>
+                          <p className="text-sm text-muted-foreground">{notif.desc}</p>
+                        </div>
+                        <Badge variant={notif.enabled ? "success" : "secondary"}>
+                          {notif.enabled ? "Activé" : "Désactivé"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Zone dangereuse */}
+                <div className="rounded-2xl border border-destructive/30 bg-card p-6 shadow-card">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-destructive" />
+                    <h3 className="text-lg font-bold text-destructive">Zone dangereuse</h3>
+                  </div>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Une fois votre compte supprimé, toutes vos données seront définitivement effacées.
+                  </p>
+                  <Button variant="destructive" size="sm">
+                    Supprimer mon compte
+                  </Button>
                 </div>
               </div>
-
-              {/* Zone dangereuse */}
-              <div className="rounded-2xl border border-destructive/30 bg-card p-6 shadow-card">
-                <div className="mb-4 flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-destructive" />
-                  <h3 className="text-lg font-bold text-destructive">Zone dangereuse</h3>
-                </div>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Une fois votre compte supprimé, toutes vos données seront définitivement effacées.
-                </p>
-                <Button variant="destructive" size="sm">
-                  Supprimer mon compte
-                </Button>
-              </div>
-
-            </div>
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
       <Footer />
