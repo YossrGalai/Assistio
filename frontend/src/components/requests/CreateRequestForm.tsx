@@ -5,6 +5,7 @@ import Step3Summary from "./Step3Summary";
 import Header from "../Header";
 import Footer from "../Footer";
 import type { CreateRequestDTO } from "../../types/request";
+import { useNavigate } from "react-router-dom";
 
 const STEPS = [
   { label: "Détails", icon: "📝", desc: "Titre & description" },
@@ -13,6 +14,7 @@ const STEPS = [
 ];
 
 export default function CreateRequestForm() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<CreateRequestDTO>({
     title: "",
@@ -28,6 +30,41 @@ export default function CreateRequestForm() {
   const nextStep = () => setStep((s) => Math.min(s + 1, 3));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
+  const token = localStorage.getItem("token");
+  if (!token) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        background: "linear-gradient(160deg, #0f0c29 0%, #1a1535 40%, #0d1117 100%)",
+        color: "#fff", gap: "20px",
+        fontFamily: "'Outfit', sans-serif",
+      }}>
+        <div style={{ fontSize: "48px" }}>🔒</div>
+        <h2 style={{ margin: 0, fontSize: "24px", fontWeight: 800 }}>
+          Connexion requise
+        </h2>
+        <p style={{ color: "#6b7280", margin: 0 }}>
+          Vous devez être connecté pour créer une demande.
+        </p>
+        <button
+          onClick={() => navigate("/login")}
+          style={{
+            padding: "14px 32px",
+            borderRadius: "12px", border: "none",
+            background: "linear-gradient(135deg, #6366f1, #a78bfa)",
+            color: "#fff", fontSize: "15px", fontWeight: 700,
+            fontFamily: "inherit", cursor: "pointer",
+            boxShadow: "0 8px 24px rgba(99,102,241,0.3)",
+          }}
+        >
+          Se connecter →
+        </button>
+      </div>
+    );
+  }
+  
   return (
     <div
       style={{

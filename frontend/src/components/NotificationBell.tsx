@@ -33,7 +33,6 @@ const NotificationBell = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Charger les notifications initiales
     const fetchNotifications = async () => {
       try {
         const data = await getNotifications();
@@ -46,9 +45,7 @@ const NotificationBell = () => {
     };
     fetchNotifications();
 
-    // Connexion Socket.io pour les notifs en temps réel
     const socket = getSocket();
-
     socket.on('new_notification', (notif: AppNotification) => {
       console.log('🔔 Nouvelle notification reçue:', notif);
       setNotifications((prev) => [notif, ...prev]);
@@ -112,7 +109,7 @@ const NotificationBell = () => {
         onClick={() => setOpen(!open)}
         aria-label="Notifications"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className="h-5 w-5 text-muted-foreground" />
         {unreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}

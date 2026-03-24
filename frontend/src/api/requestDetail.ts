@@ -74,3 +74,7 @@ export const finishRequest = async (requestId: string): Promise<void> => {
 export const cancelRequest = async (requestId: string): Promise<void> => {
   await api.put(`/request-detail/${requestId}/cancel`);
 };
+export const applyToRequest = async (requestId: string): Promise<Volunteer> => {
+  const response = await api.post<Volunteer>(`/request-detail/${requestId}/apply`);
+  return response.data;
+};
