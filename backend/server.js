@@ -48,6 +48,20 @@ const io = new Server(server, {
 // Rendre io accessible dans les routes via req.app.get('io')
 app.set('io', io);
 
+
+
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/requests', require('./routes/requests'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/request-detail', require('./routes/requestDetail'));
+
+// Start server
+const PORT = process.env.PORT ||  5000;
+
+// Socket.io — gestion des connexions
 io.on('connection', (socket) => {
   console.log(`🔌 Client connecté: ${socket.id}`);
 
