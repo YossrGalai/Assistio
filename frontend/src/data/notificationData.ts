@@ -1,4 +1,4 @@
-export type NotificationType = "aide_proposee" | "aide_acceptee" | "demande_terminee" | "nouveau_commentaire" | "review_recue" | "systeme";
+/*export type NotificationType = "aide_proposee" | "aide_acceptee" | "demande_terminee" | "nouveau_commentaire" | "review_recue" | "systeme";
 
 export interface Notification {
   id: string;
@@ -129,3 +129,4 @@ export const mockReviews: Review[] = [
     fromUser: { name: "Mohamed Gharbi", avatar: "MG" },
   },
 ];
+*/

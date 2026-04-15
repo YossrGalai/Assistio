@@ -15,6 +15,7 @@ import Requests from "./pages/Requests";
 import RequestDetail from "./pages/RequestDetail";
 import Notifications from "./pages/Notifications";
 import EmailVerified from "./pages/EmailVerified";
+import Chatbot from "./components/Chatbot";
 
 const queryClient = new QueryClient();
 
@@ -34,12 +35,13 @@ const App = () => (
           <Route path="/email-verified" element={<EmailVerified />} />
           
           <Route path="/request/:id" element={<RequestDetail />} />
-          <Route path="/requests" element={<Requests />} />  
-          <Route path="/notifications" element={<Notifications />} /> 
+          <Route path="/requests" element={<Requests />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/profile/:id" element={<Profile />} />
-<Route path="/profile" element={<Profile />} />         
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </BrowserRouter>
+      <Chatbot />
     </TooltipProvider>
   </QueryClientProvider>
 );
