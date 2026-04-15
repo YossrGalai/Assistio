@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
   ratings: [{ type: Number, min: 1, max: 5 }],
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   profileImageUrl: { type: String, default: '' },
+  isBlocked: { type: Boolean, default: false },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

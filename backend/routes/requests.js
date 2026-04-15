@@ -9,6 +9,14 @@ const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 
+async function isAdmin(req) {
+  const User = require('../models/User');
+  const userId = req.user?.userId || req.user?.id;
+  if (!userId) return false;
+  const me = await User.findById(userId).select('role');
+  return me?.role === 'admin';
+}
+
 const STATUS_MAP = {
   pending: 'ouverte', in_progress: 'en_cours', done: 'terminée',
   cancelled: 'annulée', ouverte: 'ouverte', en_cours: 'en_cours',
@@ -235,13 +243,36 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+//  PUT /api/requests/:id/status (admin override)
+router.put('/:id/status', auth, async (req, res) => {
+  try {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const request = await ServiceRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ message: 'Status is required' });
+
+    request.status = status;
+    await request.save();
+    const normalized = await normalizeRequestWithUser(request);
+    res.json(normalized);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 //  DELETE /api/requests/:id
 router.delete('/:id', auth, async (req, res) => {
   try {
     const request = await ServiceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
     const ownerId = (request.author || request.createdBy || '').toString();
-    if (ownerId !== req.user.userId) return res.status(403).json({ message: 'Not authorized' });
+    if (ownerId !== req.user.userId && !(await isAdmin(req))) return res.status(403).json({ message: 'Not authorized' });
     await request.deleteOne();
     res.json({ message: 'Request deleted' });
   } catch (error) {

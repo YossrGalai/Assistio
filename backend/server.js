@@ -56,10 +56,11 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/categories', require('./routes/categories'));
+app.use('/api/stats', require('./routes/stats'));
 app.use('/api/request-detail', require('./routes/requestDetail'));
 
-// Start server
-const PORT = process.env.PORT ||  5000;
+
 
 // Socket.io — gestion des connexions
 io.on('connection', (socket) => {
@@ -93,6 +94,8 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/categories', require('./routes/categories'));
+app.use('/api/stats', require('./routes/stats'));
 app.use('/api/request-detail', require('./routes/requestDetail'));
 app.use('/api/upload', require('./routes/upload'));
 

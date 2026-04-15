@@ -25,7 +25,7 @@ export default function MapView({ requests }: Props) {
       />
 
       {requests.map((req) => (
-        <RequestMarker key={req._id} request={req} />
+        <RequestMarker key={req.id ?? req.title} request={req} />
       ))}
     </MapContainer>
   );
