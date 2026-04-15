@@ -98,6 +98,7 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/request-detail', require('./routes/requestDetail'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/chat', require('./routes/chat'));
 
 //  START 
 const PORT = process.env.PORT || 5000;
