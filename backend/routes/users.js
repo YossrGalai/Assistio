@@ -5,6 +5,28 @@ const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
+async function isAdmin(req) {
+  const userId = req.user?.userId || req.user?.id;
+  if (!userId) return false;
+  const me = await User.findById(userId).select('role');
+  return me?.role === 'admin';
+}
+
+// GET /api/users (admin only)
+router.get('/', auth, async (req, res) => {
+  try {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const users = await User.find().sort({ createdAt: -1 });
+    res.json(users.map(formatUser));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET /api/users/profile (auth requis)
 router.get('/profile', auth, async (req, res) => {
   try {
@@ -50,6 +72,46 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
 
     const completedHelps = await countCompletedRequests(req.params.id);
     res.json({ ...formatUser(user), completedHelps });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/users/:id (admin only)
+router.put('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
+  try {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const allowedFields = ['name', 'email', 'role', 'city', 'phone', 'bio', 'profileImageUrl', 'ratings', 'reputationScore', 'completedHelps', 'isBlocked'];
+    const updates = {};
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+
+    const user = await User.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true }).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json(formatUser(user));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /api/users/:id (admin only)
+router.delete('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
+  try {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const deleted = await User.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ message: 'User deleted' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -106,6 +168,8 @@ function formatUser(user) {
     phone: obj.phone || '',
     bio: obj.bio || '',
     memberSince: obj.createdAt,
+    status: obj.isBlocked ? 'blocked' : 'active',
+    isBlocked: !!obj.isBlocked,
   };
 }
 

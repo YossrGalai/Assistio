@@ -5,6 +5,49 @@ const auth = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
+async function isAdmin(req) {
+  const userId = req.user?.userId || req.user?.id;
+  if (!userId) return false;
+  const me = await User.findById(userId).select('role');
+  return me?.role === 'admin';
+}
+
+// GET /api/reviews (admin only)
+router.get('/', auth, async (req, res) => {
+  try {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const reviews = await Review.find()
+      .populate('fromUser', 'name profileImageUrl')
+      .populate('request', 'title')
+      .sort({ createdAt: -1 });
+
+    const normalized = reviews.map(r => ({
+      id: r._id.toString(),
+      requestId: r.request?._id?.toString(),
+      requestTitle: r.request?.title,
+      fromUserId: r.fromUser?._id?.toString(),
+      toUserId: r.toUser?.toString(),
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt,
+      fromUser: {
+        name: r.fromUser?.name || 'Utilisateur',
+        avatar: r.fromUser?.name
+          ? r.fromUser.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+          : '??',
+      },
+    }));
+
+    res.json(normalized);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET /api/reviews/user/:userId
 router.get('/user/:userId', async (req, res) => {
   try {

@@ -15,6 +15,7 @@ import Requests from "./pages/Requests";
 import RequestDetail from "./pages/RequestDetail";
 import Notifications from "./pages/Notifications";
 import EmailVerified from "./pages/EmailVerified";
+import AdminDashboard from "./pages/AdminDashboard";
 import Chatbot from "./components/Chatbot";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </BrowserRouter>
       <Chatbot />

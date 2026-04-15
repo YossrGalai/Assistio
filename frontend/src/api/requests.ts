@@ -90,3 +90,17 @@ export const getCompletedAsVolunteer = async (userId: string): Promise<ServiceRe
   const response = await api.get<ServiceRequest[]>(`/requests/completed-as-volunteer/${userId}`);
   return response.data;
 };
+
+export interface Category {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+  active: boolean;
+  requestCount?: number;
+}
+
+export const getCategories = async (): Promise<Category[]> => {
+  const response = await api.get<Category[]>('/categories');
+  return response.data;
+};

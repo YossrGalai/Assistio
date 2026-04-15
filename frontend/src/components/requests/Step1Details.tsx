@@ -1,8 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import type { CreateRequestDTO } from "../../types/request";
+import { getCategories } from "../../api/requests";
 
-const CATEGORIES = [
+const CATEGORY_ICONS: Record<string, string> = {
+  "Plomberie": "🔧",
+  "Électricité": "⚡",
+  "Maçonnerie": "🧱",
+  "Peinture": "🎨",
+  "Menuiserie": "🪵",
+  "Climatisation": "❄️",
+  "Jardinage": "🌿",
+  "Déménagement": "📦",
+  "Nettoyage": "🧹",
+  "Informatique": "💻",
+  "Sécurité": "🔒",
+  "Carrelage": "🏠",
+  "Toiture": "🏗️",
+  "Serrurerie": "🗝️",
+  "Vitrage": "🪟",
+};
+
+const FALLBACK_CATEGORIES = [
   { value: "Plomberie", icon: "🔧" },
   { value: "Électricité", icon: "⚡" },
   { value: "Maçonnerie", icon: "🧱" },
@@ -78,8 +97,32 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function Step1Details({ formData, setFormData, nextStep }: Props) {
+  const [apiCategories, setApiCategories] = useState<{ value: string; icon: string }[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  
   const isValid = formData.title && formData.description && formData.category && formData.urgency;
   const [previewUrl, setPreviewUrl] = useState<string>("");
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categories = await getCategories();
+        const formattedCategories = categories
+          .filter((cat) => cat.active)
+          .map((cat) => ({
+            value: cat.name,
+            icon: CATEGORY_ICONS[cat.name] || "📋",
+          }));
+        setApiCategories(formattedCategories.length > 0 ? formattedCategories : FALLBACK_CATEGORIES);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+        setApiCategories(FALLBACK_CATEGORIES);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     if (!formData.imageFile) {
@@ -195,9 +238,12 @@ export default function Step1Details({ formData, setFormData, nextStep }: Props)
         {/* Catégorie — chips */}
         <div>
           <label style={labelStyle}>Catégorie *</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {CATEGORIES.map((cat) => {
-              const active = formData.category === cat.value;
+          {loadingCategories ? (
+            <div style={{ color: "#6b7280", fontSize: "13px" }}>Chargement des catégories...</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {apiCategories.map((cat) => {
+                const active = formData.category === cat.value;
               return (
                 <button
                   key={cat.value}
@@ -221,7 +267,8 @@ export default function Step1Details({ formData, setFormData, nextStep }: Props)
                 </button>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Urgence */}
