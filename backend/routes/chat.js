@@ -1,15 +1,65 @@
 const express = require("express");
+const Groq = require("groq-sdk").default;
 const router = express.Router();
 
-router.post("/", (req, res) => {
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
+
+router.post("/", async (req, res) => {
   const { question } = req.body;
   if (!question || typeof question !== "string") {
     return res.status(400).json({ message: "Question requise" });
   }
 
-  const answer = getChatbotAnswer(question);
-  res.json({ answer });
+  console.log("❓ Question reçue:", question);
+  console.log("🔑 Clé Groq présente:", !!process.env.GROQ_API_KEY);
+
+  try {
+    let answer;
+    let source;
+    if (groq && process.env.GROQ_API_KEY) {
+      console.log("🚀 Tentative Groq API...");
+      answer = await getAnswerFromGroq(question);
+      source = "groq";
+      console.log("✅ Réponse Groq reçue");
+    } else {
+      console.log("⚠️ Groq non disponible, utilisation fallback");
+      answer = getChatbotAnswer(question);
+      source = "fallback";
+    }
+    res.json({ answer, source });
+  } catch (error) {
+    console.warn("❌ Groq error, using fallback:", error.message);
+    const fallbackAnswer = getChatbotAnswer(question);
+    res.json({ answer: fallbackAnswer, source: "fallback" });
+  }
 });
+
+async function getAnswerFromGroq(question) {
+  try {
+    console.log("📤 Envoi à Groq:", question);
+    const response = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: "Tu es un assistant intelligent pour la plateforme Assistio. Réponds en français de manière utile et concise. Si la question n'est pas liée à Assistio, invite l'utilisateur à poser une question pertinente.",
+        },
+        { role: "user", content: question },
+      ],
+      max_tokens: 150,
+      temperature: 0.7,
+    });
+    const answer = response.choices[0].message.content.trim();
+    console.log("📥 Réponse Groq reçue:", answer.substring(0, 50) + "...");
+    return answer;
+  } catch (error) {
+    console.error("❌ Groq API failed:", error.message);
+    console.error("Error code:", error.code || "N/A");
+    throw error;
+  }
+}
 
 function getChatbotAnswer(question) {
   const normalized = question.trim().toLowerCase();
