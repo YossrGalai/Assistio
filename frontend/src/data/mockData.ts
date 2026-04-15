@@ -1,4 +1,4 @@
-export const gouvernorats = [
+/*export const gouvernorats = [
   "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan",
   "Bizerte", "Béja", "Jendouba", "Le Kef", "Siliana", "Sousse",
   "Monastir", "Mahdia", "Sfax", "Kairouan", "Kasserine", "Sidi Bouzid",
@@ -218,3 +218,4 @@ export const statusColors: Record<RequestStatus, string> = {
   terminée: "muted",
   annulée: "destructive",
 };
+*/
