@@ -12,6 +12,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { createAdminCategory, deleteAdminCategory, deleteAdminRequest, deleteAdminUser, getAdminCategories, getAdminRequestDetail, getAdminRequests, getAdminReviews, getAdminStats, getAdminUsers, type AdminCategory, type AdminRequest, type AdminReview, type AdminStats, type AdminUser, updateAdminCategory, updateAdminRequestStatus, updateAdminUser } from "../api/admin";
+import { getCurrentUser } from "../api/auth";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, ChartTooltip, Legend, Filler);
 
@@ -49,6 +50,7 @@ export default function AdminDashboard() {
   const [requestStatusDraft, setRequestStatusDraft] = useState<RequestStatus>("en attente");
   const [requestDetailLoading, setRequestDetailLoading] = useState(false);
   const [requestDetailError, setRequestDetailError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const selectClass = "flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20";
   const closeModal = () => { setModal(null); setRequestDetailError(null); setRequestDetailLoading(false); };
   const handleSectionChange = (section: AdminSectionId) => { setActiveSection(section); setConfirm(null); closeModal(); };
@@ -56,6 +58,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     (async () => {
       setLoading(true); setError(null);
+      const currentUser = getCurrentUser();
+      if (!currentUser || currentUser.role !== 'admin') {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      setIsAdmin(true);
       const results = await Promise.allSettled([getAdminUsers(), getAdminRequests(), getAdminReviews(), getAdminStats(), getAdminCategories()]);
       const [u,r,v,s,c] = results; const failures: string[] = [];
       if (u.status === "fulfilled") setUsers(u.value); else failures.push(`utilisateurs (${extractError(u.reason)})`);
@@ -98,6 +107,17 @@ export default function AdminDashboard() {
   const renderReviews = () => (<SectionCard title="Avis et reputation" description="Surveiller les avis, les moyennes et les profils a risque." action={<div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={reviewSearch} onChange={(e) => setReviewSearch(e.target.value)} placeholder="Rechercher des avis..." className="pl-9" /></div>}><div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]"><div className="space-y-3">{filteredReviews.length === 0 ? <EmptyState title="Aucun avis trouve" description="Essayez un autre mot-cle." /> : filteredReviews.map((rv) => <div key={rv.id} className="rounded-3xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-950">{rv.fromUser.name}</p><p className="text-sm text-slate-500">{rv.requestTitle ?? rv.requestId ?? "Demande"}</p></div><Badge variant="outline">{rv.rating.toFixed(1)}</Badge></div><p className="mt-3 text-sm text-slate-600">{rv.comment}</p><p className="mt-3 text-xs text-slate-400">{formatDateTime(rv.createdAt)}</p></div>)}</div><SectionCard title="Utilisateurs a surveiller" description="Notes moyennes faibles detectees automatiquement.">{lowRatedUsers.length === 0 ? <EmptyState title="Aucun utilisateur a risque" description="Les profils peu notes apparaitront ici." /> : <div className="space-y-3">{lowRatedUsers.map((entry) => <div key={entry.user.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-4"><div><p className="font-semibold text-slate-950">{entry.user.name}</p><p className="text-xs text-slate-500">{entry.count} avis</p></div><Badge variant="warning">{entry.average.toFixed(1)}</Badge></div>)}</div>}</SectionCard></div></SectionCard>);
 
   const renderSection = () => { switch (activeSection) { case "users": return renderUsers(); case "requests": return renderRequests(); case "categories": return renderCategories(); case "reviews": return renderReviews(); default: return renderDashboard(); } };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-lg text-gray-600">You do not have permission to access this page. Admin access required.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <AdminShell sidebar={<AdminSidebar activeSection={activeSection} onChangeSection={handleSectionChange} activityCount={0} />}><div className="flex min-h-[60vh] items-center justify-center"><div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-5 py-3 shadow-card"><Loader2 className="h-5 w-5 animate-spin text-orange-500" /><span className="text-sm font-medium text-slate-600">Chargement du tableau de bord admin...</span></div></div></AdminShell>;
 

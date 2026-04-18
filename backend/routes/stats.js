@@ -31,11 +31,8 @@ function normalizeStatus(status) {
 }
 
 router.get('/', auth, async (req, res) => {
+  if (!(await isAdmin(req))) return res.status(403).json({ message: 'Admin access required' });
   try {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     const [users, requests, reviews, categories] = await Promise.all([
       User.find().select('isBlocked createdAt'),
       ServiceRequest.find().sort({ createdAt: -1 }),
