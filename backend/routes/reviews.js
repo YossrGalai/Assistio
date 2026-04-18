@@ -12,13 +12,10 @@ async function isAdmin(req) {
   return me?.role === 'admin';
 }
 
-// GET /api/reviews (admin only)
+// GET /api/reviews
 router.get('/', auth, async (req, res) => {
+  if (!(await isAdmin(req))) return res.status(403).json({ message: 'Admin access required' });
   try {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     const reviews = await Review.find()
       .populate('fromUser', 'name profileImageUrl')
       .populate('request', 'title')

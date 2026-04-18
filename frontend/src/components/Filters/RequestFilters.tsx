@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, MapPin, Tag, ChevronDown, X, SlidersHorizontal } from "lucide-react";
+import { getCategories } from "../../api/requests";
 
 // --- Données Tunisie ---
 const GOUVERNORATS_VILLES: Record<string, string[]> = {
@@ -27,6 +28,24 @@ const GOUVERNORATS_VILLES: Record<string, string[]> = {
   Gafsa: ["Gafsa", "El Ksar", "Redeyef", "Moulares", "Metlaoui", "Om El Araies"],
   Tozeur: ["Tozeur", "Degache", "Nefta", "Tamerza", "Hazoua"],
   Kébili: ["Kébili", "Douz", "Souk Lahad", "El Faouar", "Jemna"],
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  "Plomberie": "🔧",
+  "Électricité": "⚡",
+  "Maçonnerie": "🧱",
+  "Peinture": "🎨",
+  "Menuiserie": "🪵",
+  "Climatisation": "❄️",
+  "Jardinage": "🌿",
+  "Déménagement": "📦",
+  "Nettoyage": "🧹",
+  "Informatique": "💻",
+  "Sécurité": "🔒",
+  "Carrelage": "🏠",
+  "Toiture": "🏗️",
+  "Serrurerie": "🗝️",
+  "Vitrage": "🪟",
 };
 
 const CATEGORIES = [
@@ -71,6 +90,24 @@ export default function RequestFilters({ onFilter }: RequestFiltersProps) {
   const [categorie, setCategorie] = useState("");
   const [statut, setStatut] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [categories, setCategories] = useState(CATEGORIES);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const fetched = await getCategories();
+        const formatted = fetched.map(cat => ({
+          value: cat.name,
+          icon: CATEGORY_ICONS[cat.name] || "📁"
+        }));
+        setCategories(formatted);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+        // Keep fallback
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const gouvernoratList = Object.keys(GOUVERNORATS_VILLES);
   const villeList = gouvernorat ? GOUVERNORATS_VILLES[gouvernorat] ?? [] : [];
@@ -234,7 +271,7 @@ export default function RequestFilters({ onFilter }: RequestFiltersProps) {
               >
                 Toutes
               </button>
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.value}
                   onClick={() => setCategorie(cat.value === categorie ? "" : cat.value)}

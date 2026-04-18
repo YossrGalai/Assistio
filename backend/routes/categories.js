@@ -44,10 +44,6 @@ async function hydrateCategoryCounts(categories) {
 // GET /api/categories
 router.get('/', auth, async (req, res) => {
   try {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     let categories = await Category.find().sort({ name: 1 });
     if (categories.length === 0) {
       const requestCategories = await ServiceRequest.distinct('category');

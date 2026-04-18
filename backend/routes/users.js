@@ -12,13 +12,10 @@ async function isAdmin(req) {
   return me?.role === 'admin';
 }
 
-// GET /api/users (admin only)
+// GET /api/users
 router.get('/', auth, async (req, res) => {
+  if (!(await isAdmin(req))) return res.status(403).json({ message: 'Admin access required' });
   try {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     const users = await User.find().sort({ createdAt: -1 });
     res.json(users.map(formatUser));
   } catch (error) {
