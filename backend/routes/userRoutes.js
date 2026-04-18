@@ -249,6 +249,56 @@ router.put("/profile", authMiddleware, async (req, res) => {
   }
 });
 
+// ---------------- CHANGE PASSWORD ----------------
+router.put("/change-password", authMiddleware, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Old and new password are required" });
+    }
+
+    const user = await User.findById(req.user.id || req.user.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Verify old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Old password is incorrect" });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// ---------------- DELETE ACCOUNT ----------------
+router.delete("/account", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id || req.user.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Delete user and their related data
+    await User.findByIdAndDelete(req.user.id || req.user.userId);
+    
+    // You may want to delete related data (requests, reviews, etc.)
+    // await Request.deleteMany({ userId: user._id });
+    // await Review.deleteMany({ $or: [{ fromUserId: user._id }, { toUserId: user._id }] });
+
+    res.json({ message: "Account deleted successfully" });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error" });
+  }
+});
+
 // ---------------- UPDATE REPUTATION ----------------
 router.post("/reputation", authMiddleware, async (req, res) => {
   try {

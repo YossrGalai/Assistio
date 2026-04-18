@@ -121,6 +121,16 @@ export const updateProfile = async (data: Partial<User>): Promise<User> => {
   return response.data;
 };
 
+export const changePassword = async (oldPassword: string, newPassword: string): Promise<{ message: string }> => {
+  const response = await api.put('/users/change-password', { oldPassword, newPassword });
+  return response.data;
+};
+
+export const deleteAccount = async (): Promise<{ message: string }> => {
+  const response = await api.delete('/users/account');
+  return response.data;
+};
+
 export const getCurrentUser = (): User | null => {
   try {
     const stored = localStorage.getItem('user');
