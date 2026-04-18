@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Button } from "../components/ui/button";
@@ -8,15 +8,18 @@ import { Input } from "../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   Star, MapPin, Calendar, Edit, Briefcase,
-  User, Lock, Bell, Shield, Save,
+  User, Lock, Bell, Shield, Save, X,
 } from "lucide-react";
 import RequestCard from "../components/RequestCard";
 import { getRequestsByUser, getCompletedAsVolunteer, type ServiceRequest } from "../api/requests";
 import { getUserReviews, type Review } from "../api/reviews";
-import { getProfile, updateProfile, getUserById, type User as UserType } from "../api/auth";
+import { getProfile, updateProfile, getUserById, changePassword, deleteAccount, type User as UserType } from "../api/auth";
+import { useToast } from "../hooks/use-toast";
 
 const Profile = () => {
   const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [editingProfile, setEditingProfile] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
@@ -26,6 +29,18 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [completedAsVolunteer, setCompletedAsVolunteer] = useState<ServiceRequest[]>([]);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+
+  // Change password state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Delete account state
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -94,10 +109,68 @@ const Profile = () => {
       });
       setCurrentUser(updated);
       setEditingProfile(false);
+      toast({ title: "Profil mis à jour", description: "Vos informations ont été sauvegardées." });
     } catch (error) {
       console.error("Erreur mise à jour profil :", error);
+      toast({ title: "Erreur", description: "Impossible de mettre à jour le profil", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast({ title: "Erreur", description: "Veuillez remplir tous les champs", variant: "destructive" });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Erreur", description: "Les nouveaux mots de passe ne correspondent pas", variant: "destructive" });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({ title: "Erreur", description: "Le mot de passe doit contenir au moins 6 caractères", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      await changePassword(oldPassword, newPassword);
+      toast({ title: "Succès", description: "Votre mot de passe a été changé avec succès" });
+      setShowChangePassword(false);
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      console.error("Erreur changement mot de passe :", error);
+      const message = error.response?.data?.message || "Impossible de changer le mot de passe";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "SUPPRIMER") {
+      toast({ title: "Erreur", description: "Vous devez écrire 'SUPPRIMER' pour confirmer", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setDeletingAccount(true);
+      await deleteAccount();
+      toast({ title: "Compte supprimé", description: "Votre compte a été supprimé avec succès" });
+      // Clear local storage and redirect
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setTimeout(() => navigate('/'), 1500);
+    } catch (error: any) {
+      console.error("Erreur suppression compte :", error);
+      const message = error.response?.data?.message || "Impossible de supprimer le compte";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -384,7 +457,7 @@ const Profile = () => {
                           Modifiez votre mot de passe régulièrement
                         </p>
                       </div>
-                      <Button variant="outline" size="sm">Changer</Button>
+                      <Button variant="outline" size="sm" onClick={() => setShowChangePassword(true)}>Changer</Button>
                     </div>
                   </div>
                 </div>
@@ -422,7 +495,7 @@ const Profile = () => {
                   <p className="mb-4 text-sm text-muted-foreground">
                     Une fois votre compte supprimé, toutes vos données seront définitivement effacées.
                   </p>
-                  <Button variant="destructive" size="sm">
+                  <Button variant="destructive" size="sm" onClick={() => setShowDeleteAccount(true)}>
                     Supprimer mon compte
                   </Button>
                 </div>
@@ -430,6 +503,138 @@ const Profile = () => {
             </TabsContent>
           )}
         </Tabs>
+
+        {/* Modal: Change Password */}
+        {showChangePassword && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-lg">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-foreground">Changer le mot de passe</h3>
+                <button
+                  onClick={() => setShowChangePassword(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                    Ancien mot de passe
+                  </label>
+                  <Input
+                    type="password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    placeholder="Entrez votre ancien mot de passe"
+                    disabled={changingPassword}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                    Nouveau mot de passe
+                  </label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Entrez votre nouveau mot de passe"
+                    disabled={changingPassword}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+                    Confirmer le mot de passe
+                  </label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirmez votre nouveau mot de passe"
+                    disabled={changingPassword}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowChangePassword(false)}
+                  disabled={changingPassword}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="hero"
+                  className="flex-1"
+                  onClick={handleChangePassword}
+                  disabled={changingPassword}
+                >
+                  {changingPassword ? "Changement..." : "Changer"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Delete Account */}
+        {showDeleteAccount && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-lg">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-destructive">Supprimer le compte</h3>
+                <button
+                  onClick={() => setShowDeleteAccount(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Cette action est irréversible. Tous vos données, demandes, et avis seront supprimés définitivement.
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  Tapez <span className="font-mono">SUPPRIMER</span> pour confirmer:
+                </p>
+                <Input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                  placeholder="SUPPRIMER"
+                  disabled={deletingAccount}
+                />
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDeleteAccount(false);
+                    setDeleteConfirmText("");
+                  }}
+                  disabled={deletingAccount}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount || deleteConfirmText !== "SUPPRIMER"}
+                >
+                  {deletingAccount ? "Suppression..." : "Supprimer"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <Footer />
     </div>
