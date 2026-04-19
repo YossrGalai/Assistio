@@ -15,7 +15,9 @@ L’objectif du projet est de structurer et digitaliser les échanges informels 
 - Recherche et filtrage par localisation  
 - Notifications en temps réel (Socket.io)  
 - Upload d’images via Cloudinary  
-- Tableau de bord utilisateur  
+- Tableau de bord utilisateur
+- Tableau de bord administrateur (gestion globale de la plateforme)
+- Intégration d’un chatbot intelligent (IA) pour l’assistance utilisateur
 
 ---
 
