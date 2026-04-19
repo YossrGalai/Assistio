@@ -76,10 +76,9 @@ npm install
 ### 3. Configuration des variables d’environnement
 
 Créer un fichier .env dans le dossier backend :  
-
-MONGO_URI=your_mongodb_uri  
-JWT_SECRET=your_secret_key  
-CLOUDINARY_URL=your_cloudinary_config  
+MONGO_URI=your_mongodb_uri
+JWT_SECRET=your_secret_key
+CLOUDINARY_URL=your_cloudinary_config
 PORT=5000
 VERIFY_EMAIL_BASE_URL=http://localhost:5000/api/users
 SMTP_HOST=smtp.gmail.com
