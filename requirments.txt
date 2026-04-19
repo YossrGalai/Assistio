@@ -12,3 +12,4 @@ npm install framer-motion
 npm install tailwind-merge
 npm install socket.io
 npm install socket.io-client
+npm install chart.js react-chartjs-2
