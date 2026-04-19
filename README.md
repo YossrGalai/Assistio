@@ -34,7 +34,8 @@ L’objectif du projet est de structurer et digitaliser les échanges informels 
 - Node.js  
 - Express.js  
 - JSON Web Token (JWT)  
-- Socket.io  
+- Socket.io
+- Chatbot IA
 
 ### Base de données et Cloud
 - MongoDB Atlas  
@@ -79,6 +80,18 @@ Créer un fichier .env dans le dossier backend :
 MONGO_URI=your_mongodb_uri  
 JWT_SECRET=your_secret_key  
 CLOUDINARY_URL=your_cloudinary_config  
+PORT=5000
+VERIFY_EMAIL_BASE_URL=http://localhost:5000/api/users
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_SECURE=false
+EMAIL_FROM="Entraide App <yourgmail@gmail.com>"
+CLOUD_NAME=
+CLOUD_API_KEY=
+CLOUD_API_SECRET=
+GROQ_API_KEY=
 ### 4. Lancer l’application  
 Backend  
 npm run dev  
