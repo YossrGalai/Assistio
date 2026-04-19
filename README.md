@@ -75,7 +75,7 @@ cd frontend
 npm install  
 ### 3. Configuration des variables d’environnement
 
-Créer un fichier .env dans le dossier backend :  
+```Créer un fichier .env dans le dossier backend :  
 MONGO_URI=your_mongodb_uri
 JWT_SECRET=your_secret_key
 CLOUDINARY_URL=your_cloudinary_config
@@ -91,6 +91,7 @@ CLOUD_NAME=
 CLOUD_API_KEY=
 CLOUD_API_SECRET=
 GROQ_API_KEY=
+```
 ### 4. Lancer l’application  
 Backend  
 npm run dev  
